@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ApplicationPath {
+  new_professional
+  current_trainer
+}
+
+enum ApplicationStatus {
+  submitted
+  booked
+  reviewed
+  advanced
+  declined
+}
+
+enum BookingStatus {
+  confirmed
+  cancelled
+}
+
+model Application {
+  id                  String            @id @default(cuid())
+  firstName           String
+  lastName            String
+  fullName            String
+  email               String
+  phone               String
+  city                String
+  state               String
+  profession          String
+  yearsOfExperience   Int
+  location            String?
+  timezone            String
+  path                ApplicationPath   @default(new_professional)
+  linkedinUrl         String?
+  background          String            @default("")
+  goals               String            @default("")
+  ipAddress           String?
+  ipLocation          String?
+  status              ApplicationStatus @default(submitted)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  bookings            Booking[]
+
+  @@index([email])
+  @@index([status])
+}
+
+model AvailabilityRule {
+  id            String   @id @default(cuid())
+  weekday       Int
+  startTime     String
+  endTime       String
+  timezone      String
+  slotMinutes   Int      @default(30)
+  bufferMinutes Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Booking {
+  id                 String        @id @default(cuid())
+  applicationId      String
+  application        Application   @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  startsAt           DateTime
+  endsAt             DateTime
+  status             BookingStatus @default(confirmed)
+  meetingUrl         String?
+  cancelToken        String        @unique
+  confirmedStartsAt  DateTime?     @unique
+  cancelledAt        DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([applicationId])
+  @@index([startsAt, status])
+}
