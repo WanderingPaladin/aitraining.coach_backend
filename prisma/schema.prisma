@@ -20,6 +20,12 @@ enum ApplicationStatus {
   declined
 }
 
+enum ApplicantStage {
+  new_no_account
+  has_accounts_no_time
+  working_no_progress
+}
+
 enum BookingStatus {
   confirmed
   cancelled
@@ -44,6 +50,7 @@ model Application {
   goals               String            @default("")
   ipAddress           String?
   ipLocation          String?
+  applicantStage      ApplicantStage?
   status              ApplicationStatus @default(submitted)
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt

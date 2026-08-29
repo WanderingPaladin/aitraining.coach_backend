@@ -49,6 +49,7 @@ export const createApplicationBody = z.object({
     .default('UTC'),
   ipAddress: z.string().trim().max(64).optional(),
   ipLocation: z.string().trim().max(2000).optional(),
+  applicant_stage: z.enum(['new_no_account', 'has_accounts_no_time', 'working_no_progress']),
 });
 
 export const listApplicationsQuery = z.object({
