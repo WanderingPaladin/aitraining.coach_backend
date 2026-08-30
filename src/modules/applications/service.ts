@@ -28,6 +28,7 @@ export function serializeApplication(application: Application) {
     ipAddress: application.ipAddress,
     ipLocation: application.ipLocation,
     applicant_stage: application.applicantStage,
+    referral_source: application.referralSource,
     status: application.status,
     createdAt: application.createdAt.toISOString(),
     updatedAt: application.updatedAt.toISOString(),
@@ -72,6 +73,7 @@ export async function createOrUpdateApplication(
     path:
       input.applicant_stage === 'new_no_account' ? 'new_professional' : 'current_trainer',
     applicantStage: input.applicant_stage,
+    referralSource: input.referral_source || null,
     background: '',
     goals: '',
     ipAddress: clientIp ?? geo?.ip ?? null,
