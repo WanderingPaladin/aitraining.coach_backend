@@ -1,6 +1,7 @@
 import { config } from '../src/config.js';
 import { prisma } from '../src/db/prisma.js';
 import { sendApplicationReceived, sendBookingConfirmation } from '../src/lib/mailer.js';
+import { experienceLabel, situationLabel } from '../src/modules/admin/labels.js';
 
 function isDeliverable(email: string): boolean {
   const lower = email.toLowerCase();
@@ -25,7 +26,18 @@ async function main() {
     console.log(`resend apply → ${application.email} (${application.fullName})`);
     await sendApplicationReceived({
       email: application.email,
-      fullName: application.firstName,
+      firstName: application.firstName,
+      fullName: application.fullName,
+      phone: application.phone,
+      city: application.city,
+      state: application.state,
+      profession: application.profession,
+      experience: experienceLabel(application.yearsOfExperience),
+      situation: situationLabel(application.applicantStage),
+      referralSource: application.referralSource,
+      timezone: application.timezone,
+      usEligible: application.usEligibilityConfirmed,
+      ipLocation: application.ipLocation,
     });
 
     for (const booking of application.bookings) {

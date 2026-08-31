@@ -221,7 +221,21 @@ export async function createOrUpdateApplication(
     });
   }
 
-  await sendApplicationReceived({ email: application.email, fullName: application.firstName });
+  await sendApplicationReceived({
+    email: application.email,
+    firstName: application.firstName,
+    fullName: application.fullName,
+    phone: application.phone,
+    city: application.city,
+    state: application.state,
+    profession: application.profession,
+    experience: experienceLabel(application.yearsOfExperience),
+    situation: situationLabel(application.applicantStage),
+    referralSource: application.referralSource,
+    timezone: application.timezone,
+    usEligible: application.usEligibilityConfirmed,
+    ipLocation: application.ipLocation,
+  });
 
   return {
     application,

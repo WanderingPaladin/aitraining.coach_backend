@@ -139,12 +139,44 @@ function introCallIcs(input: {
   });
 }
 
-export async function sendApplicationReceived(input: {
+export type ApplicationReceivedInput = {
   email: string;
+  firstName: string;
   fullName: string;
-}): Promise<void> {
+  phone: string;
+  city: string;
+  state: string;
+  profession: string;
+  experience: string;
+  situation: string | null;
+  referralSource: string | null;
+  timezone: string;
+  usEligible: boolean;
+  ipLocation: string | null;
+};
+
+function applicationDetailRows(input: ApplicationReceivedInput): [string, string][] {
+  const rows: [string, string][] = [
+    ['Name', input.fullName],
+    ['Email', input.email],
+    ['Phone', input.phone],
+    ['Location', `${input.city}, ${input.state}`],
+    ['Profession', input.profession],
+    ['AI training experience', input.experience],
+    ['Situation', input.situation ?? '—'],
+    ['How they heard about us', input.referralSource ?? '—'],
+    ['Timezone', input.timezone],
+    ['U.S. eligible', input.usEligible ? 'Yes' : 'No'],
+  ];
+  if (input.ipLocation) {
+    rows.push(['IP location', input.ipLocation]);
+  }
+  return rows;
+}
+
+export async function sendApplicationReceived(input: ApplicationReceivedInput): Promise<void> {
   const title = 'We received your application';
-  const text = `Hi ${input.fullName},\n\nThanks for applying to AI Trainers. We received your application and will review it shortly.\n\nThe next step is to book a free intro call if you have not already.\n\n— AI Trainers`;
+  const text = `Hi ${input.firstName},\n\nThanks for applying to AI Trainers. We received your application and will review it shortly.\n\nThe next step is to book a free intro call if you have not already.\n\n— AI Trainers`;
 
   await sendSafely({
     to: input.email,
@@ -152,9 +184,38 @@ export async function sendApplicationReceived(input: {
     text,
     html: emailLayout(
       title,
-      `<p>Hi ${escapeHtml(input.fullName)},</p>
+      `<p>Hi ${escapeHtml(input.firstName)},</p>
        <p>Thanks for applying to AI Trainers. We received your application and will review it shortly.</p>
        <p>The next step is to book a free intro call if you have not already.</p>`,
+    ),
+  });
+
+  const rows = applicationDetailRows(input);
+  const coachText = [
+    `${input.fullName} submitted an application.`,
+    '',
+    ...rows.map(([label, value]) => `${label}: ${value}`),
+    '',
+  ].join('\n');
+  const coachHtml = rows
+    .map(
+      ([label, value]) =>
+        `<tr>
+           <td style="padding:6px 12px 6px 0;color:#667085;vertical-align:top;white-space:nowrap;">${escapeHtml(label)}</td>
+           <td style="padding:6px 0;vertical-align:top;">${escapeHtml(value)}</td>
+         </tr>`,
+    )
+    .join('');
+
+  await sendSafely({
+    to: config.COACH_EMAIL,
+    replyTo: input.email,
+    subject: `New application: ${input.fullName}`,
+    text: coachText,
+    html: emailLayout(
+      'New application submitted',
+      `<p><strong>${escapeHtml(input.fullName)}</strong> submitted an application. Reply to this email to reach them at ${escapeHtml(input.email)}.</p>
+       <table style="border-collapse:collapse;margin-top:12px;">${coachHtml}</table>`,
     ),
   });
 }
