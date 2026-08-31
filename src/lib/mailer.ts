@@ -1,4 +1,9 @@
 import { config, mailFrom } from '../config.js';
+import {
+  createCoachNoticeEvent,
+  isMicrosoftGraphConfigured,
+  sendCoachMail,
+} from './graph.js';
 import { buildInviteIcs, type IcsAttendee } from './ics.js';
 
 export type MailMessage = {
@@ -69,6 +74,37 @@ export async function sendSafely(message: MailMessage): Promise<void> {
       throw error;
     }
   }
+}
+
+async function sendCoachSafely(
+  message: { subject: string; text: string; html: string; replyTo?: string },
+  options?: { calendarFallback?: boolean },
+): Promise<void> {
+  if (isMicrosoftGraphConfigured()) {
+    try {
+      await sendCoachMail(message);
+      return;
+    } catch (error) {
+      console.error('[mail] graph coach send failed', message.subject, error);
+      if (options?.calendarFallback) {
+        await createCoachNoticeEvent({
+          subject: message.subject,
+          html: message.html,
+        }).catch((fallbackError) => {
+          console.error('[mail] graph coach calendar fallback failed', fallbackError);
+        });
+      }
+      if (process.env.MAIL_THROW === '1') {
+        throw error;
+      }
+      return;
+    }
+  }
+
+  await sendSafely({
+    to: config.COACH_EMAIL,
+    ...message,
+  });
 }
 
 function escapeHtml(value: string): string {
@@ -207,17 +243,19 @@ export async function sendApplicationReceived(input: ApplicationReceivedInput): 
     )
     .join('');
 
-  await sendSafely({
-    to: config.COACH_EMAIL,
-    replyTo: input.email,
-    subject: `New application: ${input.fullName}`,
-    text: coachText,
-    html: emailLayout(
-      'New application submitted',
-      `<p><strong>${escapeHtml(input.fullName)}</strong> submitted an application. Reply to this email to reach them at ${escapeHtml(input.email)}.</p>
+  await sendCoachSafely(
+    {
+      replyTo: input.email,
+      subject: `New application: ${input.fullName}`,
+      text: coachText,
+      html: emailLayout(
+        'New application submitted',
+        `<p><strong>${escapeHtml(input.fullName)}</strong> submitted an application. Reply to this email to reach them at ${escapeHtml(input.email)}.</p>
        <table style="border-collapse:collapse;margin-top:12px;">${coachHtml}</table>`,
-    ),
-  });
+      ),
+    },
+    { calendarFallback: true },
+  );
 }
 
 export async function sendBookingConfirmation(input: {
@@ -254,19 +292,21 @@ export async function sendBookingConfirmation(input: {
     ics: icsAttachment,
   });
 
-  await sendSafely({
-    to: config.COACH_EMAIL,
-    subject: `Intro call booked: ${input.candidateName}`,
-    text: `${input.candidateName} (${input.candidateEmail}) booked an intro call for ${when}.\n\nJoin: ${input.meetingUrl}\nBooking: ${input.bookingId}\n`,
-    html: emailLayout(
-      'New intro call booked',
-      `<p><strong>${escapeHtml(input.candidateName)}</strong> (${escapeHtml(input.candidateEmail)}) booked an intro call.</p>
+  await sendCoachSafely(
+    {
+      replyTo: input.candidateEmail,
+      subject: `Intro call booked: ${input.candidateName}`,
+      text: `${input.candidateName} (${input.candidateEmail}) booked an intro call for ${when}.\n\nJoin: ${input.meetingUrl}\nBooking: ${input.bookingId}\n`,
+      html: emailLayout(
+        'New intro call booked',
+        `<p><strong>${escapeHtml(input.candidateName)}</strong> (${escapeHtml(input.candidateEmail)}) booked an intro call.</p>
        <p><strong>${escapeHtml(when)}</strong> (${escapeHtml(input.candidateTimezone)})</p>
        <p><a href="${escapeHtml(input.meetingUrl)}">Join the call</a></p>
        <p style="color:#667085;font-size:13px;">Booking ID: ${escapeHtml(input.bookingId)}</p>`,
-    ),
-    ics: icsAttachment,
-  });
+      ),
+    },
+    { calendarFallback: true },
+  );
 }
 
 export async function sendBookingCancelled(input: {
@@ -298,15 +338,17 @@ export async function sendBookingCancelled(input: {
     ics: icsAttachment,
   });
 
-  await sendSafely({
-    to: config.COACH_EMAIL,
-    subject: `Intro call cancelled: ${input.candidateName}`,
-    text: `${input.candidateName} (${input.candidateEmail}) cancelled the intro call for ${when}.\nBooking: ${input.bookingId}\n`,
-    html: emailLayout(
-      'Intro call cancelled',
-      `<p><strong>${escapeHtml(input.candidateName)}</strong> (${escapeHtml(input.candidateEmail)}) cancelled the intro call for <strong>${escapeHtml(when)}</strong>.</p>
+  await sendCoachSafely(
+    {
+      replyTo: input.candidateEmail,
+      subject: `Intro call cancelled: ${input.candidateName}`,
+      text: `${input.candidateName} (${input.candidateEmail}) cancelled the intro call for ${when}.\nBooking: ${input.bookingId}\n`,
+      html: emailLayout(
+        'Intro call cancelled',
+        `<p><strong>${escapeHtml(input.candidateName)}</strong> (${escapeHtml(input.candidateEmail)}) cancelled the intro call for <strong>${escapeHtml(when)}</strong>.</p>
        <p style="color:#667085;font-size:13px;">Booking ID: ${escapeHtml(input.bookingId)}</p>`,
-    ),
-    ics: icsAttachment,
-  });
+      ),
+    },
+    { calendarFallback: true },
+  );
 }
