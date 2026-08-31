@@ -75,7 +75,7 @@ async function graphFetch<T>(path: string, init: RequestInit, token: string): Pr
       ...(init.headers ?? {}),
     },
   });
-  if (response.status === 204) {
+  if (response.status === 202 || response.status === 204) {
     return undefined as T;
   }
   const data = (await response.json().catch(() => ({}))) as T & {
@@ -94,6 +94,9 @@ async function graphFetch<T>(path: string, init: RequestInit, token: string): Pr
 function policyHint(message: string): string {
   if (/application access policy|No-one has access|Forbidden/i.test(message)) {
     return `${message} Grant a Teams application access policy to this app for coach@aitrainers.coach.`;
+  }
+  if (/ErrorAccessDenied|Access is denied|MailboxWrite|Mail\.Send/i.test(message)) {
+    return `${message} Add Application permission Mail.Send (admin consent) so the booking app can deliver mail into coach@aitrainers.coach.`;
   }
   if (/Insufficient privileges|Authorization_RequestDenied/i.test(message)) {
     return `${message} Add Application permission User.Read.All (admin consent), or set MICROSOFT_COACH_USER_ID to the coach user's Object ID.`;
@@ -176,12 +179,6 @@ export async function createIntroCallEvent(input: {
           start: { dateTime: graphUtcDateTime(input.startsAt), timeZone: 'UTC' },
           end: { dateTime: graphUtcDateTime(input.endsAt), timeZone: 'UTC' },
           location: { displayName: 'Microsoft Teams' },
-          attendees: [
-            {
-              emailAddress: { address: input.candidateEmail, name: input.candidateName },
-              type: 'required',
-            },
-          ],
         }),
       },
       token,
@@ -210,6 +207,76 @@ export async function cancelIntroCallEvent(eventId: string): Promise<void> {
   await graphFetch<void>(
     `/users/${encodeURIComponent(config.MICROSOFT_COACH_UPN)}/events/${encodeURIComponent(eventId)}`,
     { method: 'DELETE' },
+    token,
+  );
+}
+
+export type CoachMailInput = {
+  subject: string;
+  html: string;
+  text: string;
+  replyTo?: string;
+};
+
+export async function sendCoachMail(input: CoachMailInput): Promise<void> {
+  if (!graphConfigured()) {
+    throw new AppError(502, 'GRAPH_NOT_CONFIGURED', 'Microsoft Graph is not configured.');
+  }
+  const token = await graphToken();
+  const coachUserId = await resolveCoachUserId(token);
+  const message: Record<string, unknown> = {
+    subject: input.subject,
+    body: { contentType: 'HTML', content: input.html },
+    toRecipients: [
+      { emailAddress: { address: config.COACH_EMAIL, name: 'AI Trainers Coach' } },
+    ],
+  };
+  if (input.replyTo) {
+    message.replyTo = [{ emailAddress: { address: input.replyTo } }];
+  }
+  try {
+    await graphFetch<void>(
+      `/users/${coachUserId}/sendMail`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ message, saveToSentItems: false }),
+      },
+      token,
+    );
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw new AppError(error.statusCode, error.code, policyHint(error.message));
+    }
+    throw error;
+  }
+}
+
+/** Outlook inbox copy when Mail.Send is not granted yet. */
+export async function createCoachNoticeEvent(input: {
+  subject: string;
+  html: string;
+}): Promise<void> {
+  if (!graphConfigured()) {
+    return;
+  }
+  const token = await graphToken();
+  const start = new Date(Date.now() + 60 * 1000);
+  const end = new Date(start.getTime() + 15 * 60 * 1000);
+  await graphFetch<GraphEvent>(
+    `/users/${encodeURIComponent(config.MICROSOFT_COACH_UPN)}/events`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        subject: input.subject,
+        body: { contentType: 'HTML', content: input.html },
+        start: { dateTime: graphUtcDateTime(start), timeZone: 'UTC' },
+        end: { dateTime: graphUtcDateTime(end), timeZone: 'UTC' },
+        isReminderOn: true,
+        reminderMinutesBeforeStart: 0,
+        showAs: 'free',
+        categories: ['AI Trainers'],
+      }),
+    },
     token,
   );
 }
