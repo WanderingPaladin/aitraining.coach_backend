@@ -10,6 +10,16 @@ import { applicationRoutes } from './modules/applications/routes.js';
 import { slotRoutes } from './modules/availability/routes.js';
 import { bookingRoutes } from './modules/bookings/routes.js';
 
+declare module 'fastify' {
+  interface FastifyRequest {
+    admin?: { name: string };
+  }
+
+  interface FastifyContextConfig {
+    public?: boolean;
+  }
+}
+
 export async function buildApp() {
   const app = Fastify({
     logger: true,
@@ -18,7 +28,7 @@ export async function buildApp() {
   });
 
   await app.register(helmet);
-  await app.register(cors, { origin: corsOriginOption });
+  await app.register(cors, { origin: corsOriginOption, credentials: true });
   await app.register(rateLimit, {
     max: 100,
     timeWindow: '1 minute',

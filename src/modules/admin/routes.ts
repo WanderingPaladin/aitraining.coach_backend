@@ -1,17 +1,24 @@
-import { timingSafeEqual } from 'node:crypto';
 import type { FastifyPluginAsync } from 'fastify';
 import { config } from '../../config.js';
-import { unauthorized } from '../../lib/errors.js';
 import {
   applicationIdParams,
+  bulkApplicationsBody,
+  createNoteBody,
   listApplicationsQuery,
+  loginBody,
   patchApplicationBody,
 } from '../applications/schema.js';
 import {
+  addApplicationNote,
+  applicationsToCsv,
+  bulkUpdateApplications,
   getApplication,
+  getOverview,
   listApplications,
+  listApplicationsForExport,
+  listFilterOptions,
   serializeApplication,
-  updateApplicationStatus,
+  updateApplication,
 } from '../applications/service.js';
 import {
   availabilityIdParams,
@@ -27,25 +34,74 @@ import {
 } from '../availability/service.js';
 import { bookingIdParams, listBookingsQuery } from '../bookings/schema.js';
 import { cancelBooking, listBookings, serializeBooking } from '../bookings/service.js';
-
-function bearerMatches(header: string | undefined, expected: string): boolean {
-  if (!header?.startsWith('Bearer ')) {
-    return false;
-  }
-  const token = header.slice('Bearer '.length);
-  const tokenBuffer = Buffer.from(token);
-  const expectedBuffer = Buffer.from(expected);
-  if (tokenBuffer.length !== expectedBuffer.length) {
-    return false;
-  }
-  return timingSafeEqual(tokenBuffer, expectedBuffer);
-}
+import {
+  authenticateAdmin,
+  clearAdminSession,
+  passwordMatches,
+  setAdminSession,
+} from './session.js';
 
 export const adminRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.post(
+    '/login',
+    {
+      config: {
+        public: true,
+        rateLimit: { max: 10, timeWindow: '15 minutes' },
+      },
+    },
+    async (request, reply) => {
+      const body = loginBody.parse(request.body);
+      if (!passwordMatches(body.password)) {
+        return reply.code(401).send({
+          error: { code: 'UNAUTHORIZED', message: 'Invalid admin password' },
+        });
+      }
+      setAdminSession(reply);
+      return { admin: { name: config.ADMIN_NAME } };
+    },
+  );
+
+  fastify.post(
+    '/logout',
+    { config: { public: true } },
+    async (_request, reply) => {
+      clearAdminSession(reply);
+      return { ok: true };
+    },
+  );
+
   fastify.addHook('preHandler', async (request) => {
-    if (!bearerMatches(request.headers.authorization, config.ADMIN_API_KEY)) {
-      throw unauthorized();
+    if (request.routeOptions.config?.public) {
+      return;
     }
+    request.admin = authenticateAdmin(request);
+  });
+
+  fastify.get('/me', async (request) => ({
+    admin: { name: request.admin?.name ?? config.ADMIN_NAME },
+  }));
+
+  fastify.get('/overview', async () => {
+    const overview = await getOverview();
+    return {
+      kpis: overview.kpis,
+      pipeline: overview.pipeline,
+      needsAttention: overview.needsAttention.map(serializeApplication),
+      recent: overview.recent.map(serializeApplication),
+    };
+  });
+
+  fastify.get('/applications/options', async () => listFilterOptions());
+
+  fastify.get('/applications.csv', async (request, reply) => {
+    const query = listApplicationsQuery.parse(request.query);
+    const items = await listApplicationsForExport(query);
+    const csv = applicationsToCsv(items);
+    return reply
+      .header('content-type', 'text/csv; charset=utf-8')
+      .header('content-disposition', 'attachment; filename="applications.csv"')
+      .send(csv);
   });
 
   fastify.get('/applications', async (request) => {
@@ -57,12 +113,20 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
     };
   });
 
+  fastify.post('/applications/bulk', async (request) => {
+    const body = bulkApplicationsBody.parse(request.body);
+    const actor = request.admin?.name ?? config.ADMIN_NAME;
+    return bulkUpdateApplications(body.ids, body, actor);
+  });
+
   fastify.get('/applications/:id', async (request) => {
     const params = applicationIdParams.parse(request.params);
-    const application = await getApplication(params.id);
+    const { application, previousId, nextId } = await getApplication(params.id);
     return {
       application: {
         ...serializeApplication(application),
+        previousId,
+        nextId,
         bookings: application.bookings.map((booking) => serializeBooking(booking)),
       },
     };
@@ -71,8 +135,48 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch('/applications/:id', async (request) => {
     const params = applicationIdParams.parse(request.params);
     const body = patchApplicationBody.parse(request.body);
-    const application = await updateApplicationStatus(params.id, body.status);
-    return { application: serializeApplication(application) };
+    if (Object.keys(body).length === 0) {
+      const { application, previousId, nextId } = await getApplication(params.id);
+      return {
+        application: {
+          ...serializeApplication(application),
+          previousId,
+          nextId,
+        },
+      };
+    }
+    const updated = await updateApplication(
+      params.id,
+      body,
+      request.admin?.name ?? config.ADMIN_NAME,
+    );
+    const { application, previousId, nextId } = await getApplication(updated.id);
+    return {
+      application: {
+        ...serializeApplication(application),
+        previousId,
+        nextId,
+        bookings: application.bookings.map((booking) => serializeBooking(booking)),
+      },
+    };
+  });
+
+  fastify.post('/applications/:id/notes', async (request, reply) => {
+    const params = applicationIdParams.parse(request.params);
+    const body = createNoteBody.parse(request.body);
+    const note = await addApplicationNote(
+      params.id,
+      body.body,
+      request.admin?.name ?? config.ADMIN_NAME,
+    );
+    return reply.code(201).send({
+      note: {
+        id: note.id,
+        author: note.author,
+        body: note.body,
+        createdAt: note.createdAt.toISOString(),
+      },
+    });
   });
 
   fastify.get('/availability', async () => {
@@ -113,6 +217,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
           fullName: booking.application.fullName,
           email: booking.application.email,
           status: booking.application.status,
+          pipelineStage: booking.application.pipelineStage,
         },
       })),
     };
