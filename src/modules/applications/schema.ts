@@ -19,6 +19,41 @@ export const applicationStatusSchema = z.enum([
   'declined',
 ]);
 
+export const pipelineStageSchema = z.enum([
+  'NEW',
+  'REVIEWING',
+  'CONTACTED',
+  'DEMO_SCHEDULED',
+  'QUALIFIED',
+  'ONBOARDING',
+  'REJECTED',
+  'ARCHIVED',
+]);
+
+export const applicantStageSchema = z.enum([
+  'new_no_account',
+  'has_accounts_no_time',
+  'working_no_progress',
+]);
+
+function csvEnumList<T extends string>(schema: z.ZodEnum<[T, ...T[]]>) {
+  return z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => {
+      if (!value) {
+        return undefined;
+      }
+      const parsed = value
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((part) => schema.parse(part));
+      return parsed.length > 0 ? parsed : undefined;
+    });
+}
+
 export const createApplicationBody = z.object({
   firstName: z.string().trim().min(1).max(80),
   lastName: z.string().trim().min(1).max(80),
@@ -53,7 +88,7 @@ export const createApplicationBody = z.object({
     .default('UTC'),
   ipAddress: z.string().trim().max(64).optional(),
   ipLocation: z.string().trim().max(2000).optional(),
-  applicant_stage: z.enum(['new_no_account', 'has_accounts_no_time', 'working_no_progress']),
+  applicant_stage: applicantStageSchema,
   referral_source: z
     .string()
     .trim()
@@ -67,8 +102,28 @@ export const createApplicationBody = z.object({
   }),
 });
 
+const optionalDatetime = z
+  .string()
+  .datetime({ offset: true })
+  .nullable()
+  .optional();
+
 export const listApplicationsQuery = z.object({
   status: applicationStatusSchema.optional(),
+  stage: csvEnumList(pipelineStageSchema),
+  applicantStage: csvEnumList(applicantStageSchema),
+  profession: z.string().trim().max(80).optional(),
+  experienceMin: z.coerce.number().int().min(0).max(4).optional(),
+  experienceMax: z.coerce.number().int().min(0).max(4).optional(),
+  state: z.string().trim().max(2).optional(),
+  assignee: z.string().trim().max(80).optional(),
+  unassigned: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value === 'true')),
+  tag: z.string().trim().max(40).optional(),
+  submittedFrom: z.string().datetime({ offset: true }).optional(),
+  submittedTo: z.string().datetime({ offset: true }).optional(),
   email: z
     .string()
     .trim()
@@ -78,10 +133,38 @@ export const listApplicationsQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   q: z.string().trim().max(80).optional(),
+  sort: z.enum(['newest', 'oldest']).default('newest'),
+  ids: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value ? value.split(',').map((id) => id.trim()).filter(Boolean) : undefined)),
 });
 
 export const patchApplicationBody = z.object({
-  status: applicationStatusSchema,
+  status: applicationStatusSchema.optional(),
+  pipelineStage: pipelineStageSchema.optional(),
+  assignee: z.string().trim().max(80).nullable().optional(),
+  tags: z.array(z.string().trim().max(40)).max(20).optional(),
+  addTag: z.string().trim().max(40).optional(),
+  nextActionAt: optionalDatetime,
+  demoScheduledAt: optionalDatetime,
+});
+
+export const bulkApplicationsBody = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(100),
+  pipelineStage: pipelineStageSchema.optional(),
+  assignee: z.string().trim().max(80).nullable().optional(),
+  addTag: z.string().trim().max(40).optional(),
+  archive: z.boolean().optional(),
+});
+
+export const createNoteBody = z.object({
+  body: z.string().min(1).max(8000),
+});
+
+export const loginBody = z.object({
+  password: z.string().min(1).max(200),
 });
 
 export const applicationIdParams = z.object({
@@ -89,3 +172,7 @@ export const applicationIdParams = z.object({
 });
 
 export type CreateApplicationBody = z.infer<typeof createApplicationBody>;
+export type ListApplicationsQuery = z.infer<typeof listApplicationsQuery>;
+export type PatchApplicationBody = z.infer<typeof patchApplicationBody>;
+export type BulkApplicationsBody = z.infer<typeof bulkApplicationsBody>;
+export type PipelineStageValue = z.infer<typeof pipelineStageSchema>;

@@ -4,6 +4,7 @@ import { config } from '../../config.js';
 import { prisma } from '../../db/prisma.js';
 import { badRequest, conflict, forbidden, notFound } from '../../lib/errors.js';
 import { sendBookingCancelled, sendBookingConfirmation } from '../../lib/mailer.js';
+import { cancelIntroCallEvent, createIntroCallEvent, isMicrosoftGraphConfigured } from '../../lib/graph.js';
 import { isOfferedSlot } from '../availability/slots.js';
 import { toSlotRule } from '../availability/service.js';
 
@@ -59,6 +60,19 @@ export async function createBooking(input: { applicationId: string; startsAt: st
     throw conflict('SLOT_UNAVAILABLE', 'That intro-call slot is no longer available');
   }
 
+  let meetingUrl = config.INTRO_CALL_MEETING_URL;
+  let microsoftEventId: string | null = null;
+  if (isMicrosoftGraphConfigured()) {
+    const meeting = await createIntroCallEvent({
+      candidateName: application.fullName,
+      candidateEmail: application.email,
+      startsAt: offered.startsAt,
+      endsAt: offered.endsAt,
+    });
+    meetingUrl = meeting.joinUrl;
+    microsoftEventId = meeting.eventId;
+  }
+
   try {
     const booking = await prisma.$transaction(async (tx) => {
       const created = await tx.booking.create({
@@ -67,18 +81,29 @@ export async function createBooking(input: { applicationId: string; startsAt: st
           startsAt: offered.startsAt,
           endsAt: offered.endsAt,
           status: 'confirmed',
-          meetingUrl: config.INTRO_CALL_MEETING_URL,
+          meetingUrl,
+          microsoftEventId,
           cancelToken: newCancelToken(),
           confirmedStartsAt: offered.startsAt,
         },
       });
 
-      if (application.status === 'submitted') {
-        await tx.application.update({
-          where: { id: application.id },
-          data: { status: 'booked' },
-        });
-      }
+      await tx.application.update({
+        where: { id: application.id },
+        data: {
+          ...(application.status === 'submitted' ? { status: 'booked' } : {}),
+          demoScheduledAt: offered.startsAt,
+        },
+      });
+      await tx.applicationActivity.create({
+        data: {
+          applicationId: application.id,
+          type: 'demo_scheduled',
+          actor: 'system',
+          message: `Intro call booked for ${offered.startsAt.toISOString()}`,
+          metadata: { bookingId: created.id, startsAt: offered.startsAt.toISOString() },
+        },
+      });
 
       return created;
     });
@@ -90,12 +115,17 @@ export async function createBooking(input: { applicationId: string; startsAt: st
       bookingId: booking.id,
       startsAt: booking.startsAt,
       endsAt: booking.endsAt,
-      meetingUrl: booking.meetingUrl ?? config.INTRO_CALL_MEETING_URL,
+      meetingUrl: booking.meetingUrl ?? meetingUrl,
       cancelToken: booking.cancelToken,
     });
 
     return booking;
   } catch (error) {
+    if (microsoftEventId) {
+      await cancelIntroCallEvent(microsoftEventId).catch((graphError) => {
+        console.error('[graph] failed to roll back intro-call event', graphError);
+      });
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       throw conflict('SLOT_UNAVAILABLE', 'That intro-call slot is no longer available');
     }
@@ -152,6 +182,12 @@ export async function cancelBooking(id: string, token?: string, asAdmin = false)
     endsAt: updated.endsAt,
     meetingUrl: updated.meetingUrl ?? config.INTRO_CALL_MEETING_URL,
   });
+
+  if (booking.microsoftEventId) {
+    await cancelIntroCallEvent(booking.microsoftEventId).catch((error) => {
+      console.error('[graph] failed to cancel intro-call event', error);
+    });
+  }
 
   return updated;
 }

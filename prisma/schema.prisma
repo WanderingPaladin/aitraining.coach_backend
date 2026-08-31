@@ -31,35 +31,93 @@ enum BookingStatus {
   cancelled
 }
 
+enum PipelineStage {
+  NEW
+  REVIEWING
+  CONTACTED
+  DEMO_SCHEDULED
+  QUALIFIED
+  ONBOARDING
+  REJECTED
+  ARCHIVED
+}
+
+enum ActivityType {
+  submitted
+  stage_changed
+  assignee_changed
+  note_added
+  tag_changed
+  demo_scheduled
+  demo_updated
+  archived
+  rejected
+  bulk_updated
+}
+
 model Application {
-  id                  String            @id @default(cuid())
-  firstName           String
-  lastName            String
-  fullName            String
-  email               String
-  phone               String
-  city                String
-  state               String
-  profession          String
-  yearsOfExperience   Int
-  location            String?
-  timezone            String
-  path                ApplicationPath   @default(new_professional)
-  linkedinUrl         String?
-  background          String            @default("")
-  goals               String            @default("")
-  ipAddress           String?
-  ipLocation          String?
-  applicantStage      ApplicantStage?
-  referralSource      String?
-  usEligibilityConfirmed Boolean          @default(false)
-  status              ApplicationStatus @default(submitted)
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
-  bookings            Booking[]
+  id                     String            @id @default(cuid())
+  firstName              String
+  lastName               String
+  fullName               String
+  email                  String
+  phone                  String
+  city                   String
+  state                  String
+  profession             String
+  yearsOfExperience      Int
+  location               String?
+  timezone               String
+  path                   ApplicationPath   @default(new_professional)
+  linkedinUrl            String?
+  background             String            @default("")
+  goals                  String            @default("")
+  ipAddress              String?
+  ipLocation             String?
+  applicantStage         ApplicantStage?
+  referralSource         String?
+  usEligibilityConfirmed Boolean           @default(false)
+  status                 ApplicationStatus @default(submitted)
+  pipelineStage          PipelineStage     @default(NEW)
+  assignee               String?
+  tags                   String[]          @default([])
+  nextActionAt           DateTime?
+  demoScheduledAt        DateTime?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  bookings               Booking[]
+  notes                  ApplicationNote[]
+  activities             ApplicationActivity[]
 
   @@index([email])
   @@index([status])
+  @@index([pipelineStage])
+  @@index([assignee])
+  @@index([createdAt])
+}
+
+model ApplicationNote {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  author        String
+  body          String
+  createdAt     DateTime    @default(now())
+
+  @@index([applicationId, createdAt])
+}
+
+model ApplicationActivity {
+  id            String       @id @default(cuid())
+  applicationId String
+  application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  type          ActivityType
+  actor         String
+  message       String
+  metadata      Json?
+  createdAt     DateTime     @default(now())
+
+  @@index([applicationId, createdAt])
 }
 
 model AvailabilityRule {
@@ -83,6 +141,7 @@ model Booking {
   endsAt             DateTime
   status             BookingStatus @default(confirmed)
   meetingUrl         String?
+  microsoftEventId   String?
   cancelToken        String        @unique
   confirmedStartsAt  DateTime?     @unique
   cancelledAt        DateTime?
