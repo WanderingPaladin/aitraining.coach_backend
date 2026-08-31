@@ -60,6 +60,11 @@ export const createApplicationBody = z.object({
     .max(120)
     .optional()
     .transform((value) => (value ? value : undefined)),
+  us_eligibility_confirmed: z.literal(true, {
+    errorMap: () => ({
+      message: 'Please confirm that you meet the current U.S. eligibility requirement.',
+    }),
+  }),
 });
 
 export const listApplicationsQuery = z.object({

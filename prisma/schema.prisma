@@ -52,6 +52,7 @@ model Application {
   ipLocation          String?
   applicantStage      ApplicantStage?
   referralSource      String?
+  usEligibilityConfirmed Boolean          @default(false)
   status              ApplicationStatus @default(submitted)
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
