@@ -11,6 +11,8 @@ import { applicationRoutes } from './modules/applications/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { slotRoutes } from './modules/availability/routes.js';
 import { bookingRoutes } from './modules/bookings/routes.js';
+import { internalJobRoutes } from './modules/jobs/internal-routes.js';
+import { jobRoutes } from './modules/jobs/routes.js';
 import { opportunityRoutes } from './modules/opportunities/routes.js';
 
 declare module 'fastify' {
@@ -58,6 +60,8 @@ export async function buildApp() {
   await app.register(authRoutes, { prefix: '/v1/auth' });
   await app.register(accountRoutes, { prefix: '/v1/account' });
   await app.register(opportunityRoutes, { prefix: '/v1/opportunities' });
+  await app.register(jobRoutes, { prefix: '/v1/jobs' });
+  await app.register(internalJobRoutes, { prefix: '/v1/internal' });
   await app.register(adminRoutes, { prefix: '/v1/admin' });
 
   return app;

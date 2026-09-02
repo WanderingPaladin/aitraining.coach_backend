@@ -144,3 +144,11 @@ curl -sS http://127.0.0.1:5000/health
 ```bash
 npm test
 ```
+
+## Job board
+
+Aggregated AI-training opportunities are documented in [`docs/job-board.md`](docs/job-board.md). After deploying the `20260902190000_job_board` migration, add real Greenhouse/Lever/Ashby/JSON-LD identifiers in Admin → Job sources, then run:
+
+```bash
+npm run jobs:sync
+```

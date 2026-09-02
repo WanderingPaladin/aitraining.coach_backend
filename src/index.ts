@@ -16,6 +16,8 @@ process.on('SIGTERM', () => void shutdown('SIGTERM'));
 
 try {
   await app.listen({ port: config.PORT, host: config.HOST });
+  const { startJobSyncScheduler } = await import('./modules/job-collector/scheduler.js');
+  startJobSyncScheduler(app.log);
 } catch (error) {
   app.log.error(error);
   await prisma.$disconnect();

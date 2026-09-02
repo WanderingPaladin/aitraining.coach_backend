@@ -275,3 +275,114 @@ model Booking {
   @@index([applicationId])
   @@index([startsAt, status])
 }
+
+enum JobSourceType {
+  greenhouse
+  lever
+  ashby
+  jsonld
+  custom
+}
+
+enum JobSyncStatus {
+  running
+  success
+  partial
+  failed
+}
+
+model JobSource {
+  id                    String        @id @default(cuid())
+  companyName           String
+  companySlug           String        @unique
+  companyLogoUrl        String?
+  sourceType            JobSourceType
+  boardToken            String        @default("")
+  careersUrl            String        @default("")
+  enabled               Boolean       @default(true)
+  priority              Int           @default(100)
+  crawlFrequencyMinutes Int           @default(360)
+  lastCrawledAt         DateTime?
+  lastSuccessAt         DateTime?
+  lastError             String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  jobs                  Job[]
+  syncRuns              JobSyncRun[]
+
+  @@index([enabled, priority])
+  @@index([sourceType])
+}
+
+model Job {
+  id               String     @id @default(cuid())
+  sourceId         String
+  source           JobSource  @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  externalJobId    String
+  slug             String     @unique
+  title            String
+  companyName      String
+  companyLogoUrl   String?
+  descriptionHtml  String     @default("")
+  descriptionText  String     @default("")
+  location         String?
+  country          String?
+  state            String?
+  city             String?
+  remoteType       String?
+  employmentType   String?
+  salaryMin        Int?
+  salaryMax        Int?
+  salaryCurrency   String?
+  experienceLevel  String?
+  category         String?
+  relevanceScore   Int        @default(0)
+  postedAt         DateTime?
+  updatedAtSource  DateTime?
+  expiresAt        DateTime?
+  applyUrl         String
+  sourceUrl        String
+  fingerprint      String
+  isActive         Boolean    @default(true)
+  isDuplicate      Boolean    @default(false)
+  firstSeenAt      DateTime   @default(now())
+  lastSeenAt       DateTime   @default(now())
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@unique([sourceId, externalJobId])
+  @@index([isActive])
+  @@index([postedAt])
+  @@index([relevanceScore])
+  @@index([companyName])
+  @@index([category])
+  @@index([remoteType])
+  @@index([fingerprint])
+  @@index([isActive, isDuplicate, relevanceScore, postedAt])
+  @@index([slug])
+}
+
+model JobSyncRun {
+  id           String        @id @default(cuid())
+  sourceId     String
+  source       JobSource     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  startedAt    DateTime      @default(now())
+  finishedAt   DateTime?
+  status       JobSyncStatus @default(running)
+  jobsFetched  Int           @default(0)
+  jobsInserted Int           @default(0)
+  jobsUpdated  Int           @default(0)
+  jobsRejected Int           @default(0)
+  errorMessage String?
+  createdAt    DateTime      @default(now())
+
+  @@index([sourceId, startedAt])
+  @@index([status, startedAt])
+}
+
+model JobSyncLock {
+  id          String    @id
+  owner       String?
+  lockedAt    DateTime?
+  lockedUntil DateTime?
+}

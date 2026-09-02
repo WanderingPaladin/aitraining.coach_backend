@@ -21,6 +21,17 @@ const envSchema = z.object({
   MICROSOFT_COACH_USER_ID: z.string().default(''),
   MAIL_FROM: z.string().min(3).default('AI Trainers <hello@aitrainers.coach>'),
   RESEND_API_KEY: z.string().optional().default(''),
+  JOB_SYNC_SECRET: z.string().default(''),
+  JOB_SYNC_ENABLED: z
+    .enum(['true', 'false', ''])
+    .optional()
+    .default('')
+    .transform((value) => {
+      if (value === 'true') return true;
+      if (value === 'false') return false;
+      return process.env.NODE_ENV !== 'test';
+    }),
+  JOB_SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(15).max(24 * 60).default(360),
 });
 
 export type Config = z.infer<typeof envSchema>;
@@ -73,4 +84,9 @@ export function sessionSigningSecret(): string {
     throw new Error('SESSION_SECRET must be at least 32 characters in production');
   }
   return `dev-session:${config.ADMIN_API_KEY}`.padEnd(32, 'x');
+}
+
+export function jobSyncSecret(): string {
+  const explicit = config.JOB_SYNC_SECRET.trim();
+  return explicit.length >= 16 ? explicit : config.ADMIN_API_KEY;
 }

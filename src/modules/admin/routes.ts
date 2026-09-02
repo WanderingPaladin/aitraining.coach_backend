@@ -34,6 +34,7 @@ import {
 } from '../availability/service.js';
 import { bookingIdParams, listBookingsQuery } from '../bookings/schema.js';
 import { cancelBooking, listBookings, serializeBooking } from '../bookings/service.js';
+import { jobAdminRoutes } from '../jobs/admin-routes.js';
 import {
   authenticateAdmin,
   clearAdminSession,
@@ -228,4 +229,6 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
     const booking = await cancelBooking(params.id, undefined, true);
     return { booking: serializeBooking(booking) };
   });
+
+  await fastify.register(jobAdminRoutes);
 };
