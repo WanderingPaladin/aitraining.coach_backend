@@ -119,6 +119,16 @@ export async function createBooking(input: { applicationId: string; startsAt: st
       cancelToken: booking.cancelToken,
     });
 
+    if (application.userId) {
+      await prisma.accountActivity.create({
+        data: {
+          userId: application.userId,
+          type: 'intro_call_booked',
+          message: 'Intro call booked',
+        },
+      });
+    }
+
     return booking;
   } catch (error) {
     if (microsoftEventId) {

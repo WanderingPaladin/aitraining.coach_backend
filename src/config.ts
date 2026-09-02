@@ -11,6 +11,7 @@ const envSchema = z.object({
   ADMIN_NAME: z.string().trim().min(1).max(80).default('Admin'),
   SESSION_SECRET: z.string().default(''),
   CORS_ORIGIN: z.string().default('*'),
+  APP_ORIGIN: z.string().url().default('http://localhost:3000'),
   INTRO_CALL_MEETING_URL: z.string().url(),
   COACH_EMAIL: z.string().email(),
   MICROSOFT_TENANT_ID: z.string().default(''),

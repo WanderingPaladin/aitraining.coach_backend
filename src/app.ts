@@ -6,9 +6,12 @@ import Fastify from 'fastify';
 import { corsOriginOption } from './config.js';
 import { serializeError } from './lib/http.js';
 import { adminRoutes } from './modules/admin/routes.js';
+import { accountRoutes } from './modules/account/routes.js';
 import { applicationRoutes } from './modules/applications/routes.js';
+import { authRoutes } from './modules/auth/routes.js';
 import { slotRoutes } from './modules/availability/routes.js';
 import { bookingRoutes } from './modules/bookings/routes.js';
+import { opportunityRoutes } from './modules/opportunities/routes.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -52,6 +55,9 @@ export async function buildApp() {
   await app.register(applicationRoutes, { prefix: '/v1' });
   await app.register(slotRoutes, { prefix: '/v1' });
   await app.register(bookingRoutes, { prefix: '/v1' });
+  await app.register(authRoutes, { prefix: '/v1/auth' });
+  await app.register(accountRoutes, { prefix: '/v1/account' });
+  await app.register(opportunityRoutes, { prefix: '/v1/opportunities' });
   await app.register(adminRoutes, { prefix: '/v1/admin' });
 
   return app;

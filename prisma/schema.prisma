@@ -55,8 +55,131 @@ enum ActivityType {
   bulk_updated
 }
 
+enum OpportunityStatus {
+  open
+  closed
+}
+
+enum AccountActivityType {
+  account_created
+  profile_updated
+  opportunity_saved
+  intro_call_booked
+  application_linked
+}
+
+model User {
+  id                   String              @id @default(cuid())
+  email                String              @unique
+  passwordHash         String
+  emailVerifiedAt      DateTime?
+  emailVerifyTokenHash String?
+  emailVerifyExpiresAt DateTime?
+  resetTokenHash       String?
+  resetExpiresAt       DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  sessions             UserSession[]
+  profile              Profile?
+  applications         Application[]
+  savedOpportunities   SavedOpportunity[]
+  activities           AccountActivity[]
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Profile {
+  id                      String          @id @default(cuid())
+  userId                  String          @unique
+  user                    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName               String          @default("")
+  lastName                String          @default("")
+  phone                   String?
+  city                    String?
+  state                   String?
+  profession              String?
+  timezone                String?
+  applicantStage          ApplicantStage?
+  yearsOfAiTraining       Int             @default(0)
+  usEligibilityConfirmed  Boolean         @default(false)
+  yearsDomainExperience   Int?
+  specialties             String[]        @default([])
+  skills                  String[]        @default([])
+  educationLevel          String?
+  desiredCategories       String[]        @default([])
+  weeklyAvailability      String?
+  platformsJoined         String[]        @default([])
+  platformStatus          String?
+  remotePreference        String?
+  languages               String[]        @default([])
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+}
+
+model Opportunity {
+  id                    String              @id @default(cuid())
+  sourcePlatform        String
+  sourceUrl             String
+  externalId            String?
+  title                 String
+  summary               String
+  category              String
+  skills                String[]            @default([])
+  experienceRequirement String?
+  location              String?
+  remoteStatus          String?
+  compensationText      String?
+  beginnerFriendly      Boolean             @default(false)
+  eligibility           String?
+  postedAt              DateTime?
+  firstSeenAt           DateTime            @default(now())
+  lastVerifiedAt        DateTime            @default(now())
+  status                OpportunityStatus   @default(open)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  savedBy               SavedOpportunity[]
+
+  @@index([status, createdAt])
+  @@index([sourcePlatform])
+  @@index([category])
+}
+
+model SavedOpportunity {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  opportunityId  String
+  opportunity    Opportunity  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([userId, opportunityId])
+  @@index([userId, createdAt])
+}
+
+model AccountActivity {
+  id        String              @id @default(cuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      AccountActivityType
+  message   String
+  createdAt DateTime            @default(now())
+
+  @@index([userId, createdAt])
+}
+
 model Application {
   id                     String            @id @default(cuid())
+  userId                 String?
+  user                   User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   firstName              String
   lastName               String
   fullName               String
@@ -90,6 +213,7 @@ model Application {
   activities             ApplicationActivity[]
 
   @@index([email])
+  @@index([userId])
   @@index([status])
   @@index([pipelineStage])
   @@index([assignee])
