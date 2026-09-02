@@ -103,11 +103,11 @@ export function canScoreMatch(profile: MatchProfile): boolean {
 }
 
 export function matchLabel(score: number): string {
-  if (score >= 90) return 'Excellent Match';
-  if (score >= 80) return 'Strong Match';
-  if (score >= 70) return 'Good Match';
-  if (score >= 60) return 'Possible Match';
-  return 'Low Match';
+  if (score >= 90) return 'Excellent Fit';
+  if (score >= 80) return 'Strong Fit';
+  if (score >= 70) return 'Good Fit';
+  if (score >= 60) return 'Possible Fit';
+  return 'Limited Fit';
 }
 
 function parseYears(requirement: string | null | undefined): number | null {

@@ -92,6 +92,16 @@ describe('scoreOpportunity', () => {
   });
 });
 
+describe('matchLabel', () => {
+  it('uses Fit labels instead of hiring-probability language', () => {
+    expect(matchLabel(95)).toBe('Excellent Fit');
+    expect(matchLabel(84)).toBe('Strong Fit');
+    expect(matchLabel(72)).toBe('Good Fit');
+    expect(matchLabel(61)).toBe('Possible Fit');
+    expect(matchLabel(40)).toBe('Limited Fit');
+  });
+});
+
 describe('profileReadiness', () => {
   it('is separate from job match and uses completeness components', () => {
     const ready = profileReadiness(completeProfile);
