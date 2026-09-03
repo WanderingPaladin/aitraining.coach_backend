@@ -2,7 +2,7 @@
 
 AITrainers.coach collects **public employer job postings** related to AI training, evaluation, annotation, RLHF, and domain-expert work. The site is not the employer. Applications always happen on the original apply URL.
 
-The existing curated `Opportunity` records (Outlier, Handshake, etc.) are unchanged. Aggregated ATS jobs live in `JobSource` / `Job`.
+The job board shows **real employer postings** collected from public career pages and marketplace catalogs (micro1, Mercor). Hand-written placeholder listings have been removed. Aggregated jobs live in `JobSource` / `Job`.
 
 ## Architecture
 
@@ -49,7 +49,7 @@ interface JobSourceAdapter {
 
 Do not invent board IDs. Add a source only when you have the real public identifier.
 
-Snorkel Greenhouse (`snorkelai`) and Mercor Ashby (`mercor`) are staff career boards and are skipped. DataAnnotation has no public per-role job feed; curated `Opportunity` cards remain for that platform.
+Snorkel Greenhouse (`snorkelai`) and Mercor Ashby (`mercor`) are staff career boards and are skipped. DataAnnotation has no public per-role job feed yet.
 
 ### Add a Greenhouse source
 
@@ -85,7 +85,7 @@ Keyword weights live in `src/modules/job-collector/relevance-weights.ts`.
 
 Generic software-engineering titles are penalized unless the title also contains an AI-training override such as “Coding Expert – AI Training”.
 
-`relevance_score` answers “is this appropriate for AITrainers.coach?”. Personalized `user_match_score` is not implemented yet.
+`relevance_score` answers “is this appropriate for AITrainers.coach?”. When a signed-in user has a complete profile, `/v1/jobs` also returns a personalized `match` score per listing (domain, skills, experience, location, availability).
 
 ## Dedup and stale jobs
 
@@ -109,7 +109,7 @@ npm run jobs:discover
 npm run jobs:sync
 ```
 
-`jobs:discover` ensures micro1/Mercor marketplace sources, reopens curated seed listings, and (when `SERPER_API_KEY` is set) searches Google for Greenhouse/Lever/Ashby boards. It does **not** close curated opportunities. Admin: Job sources → Search Google for boards.
+`jobs:discover` ensures micro1/Mercor marketplace sources, closes any legacy hand-written opportunity records, and (when `SERPER_API_KEY` is set) searches Google for Greenhouse/Lever/Ashby boards. Admin: Job sources → Search Google for boards.
 
 Cron / GitHub Action against the API:
 

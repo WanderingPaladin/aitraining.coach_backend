@@ -1,6 +1,5 @@
 import { PrismaClient } from '@prisma/client';
 import { ensureMarketplaceSources } from '../src/modules/job-collector/marketplace-sources.js';
-import { ensureCuratedOpportunities } from '../src/modules/opportunities/ensure-seed.js';
 
 const prisma = new PrismaClient();
 
@@ -28,13 +27,6 @@ async function seedAvailability() {
   console.log('Seeded Mon–Fri 09:00–17:00 America/New_York intro-call windows.');
 }
 
-async function seedOpportunities() {
-  const result = await ensureCuratedOpportunities();
-  console.log(
-    `Curated opportunities: created ${result.created}, reopened ${result.reopened}.`,
-  );
-}
-
 async function seedMarketplaceSources() {
   const result = await ensureMarketplaceSources();
   console.log(`Marketplace job sources: created ${result.created}, updated ${result.updated}.`);
@@ -42,7 +34,6 @@ async function seedMarketplaceSources() {
 
 async function main() {
   await seedAvailability();
-  await seedOpportunities();
   await seedMarketplaceSources();
 }
 

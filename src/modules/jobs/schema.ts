@@ -12,7 +12,7 @@ export const listJobsQuery = z.object({
   category: z.string().trim().max(80).optional().default(''),
   employmentType: z.string().trim().max(40).optional().default(''),
   company: z.string().trim().max(80).optional().default(''),
-  sort: z.enum(['newest', 'relevant']).optional().default('newest'),
+  sort: z.enum(['newest', 'relevant', 'match']).optional().default('newest'),
   page: z.coerce.number().int().min(1).optional().default(1),
   pageSize: z.coerce.number().int().min(1).max(50).optional().default(20),
 });

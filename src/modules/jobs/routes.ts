@@ -1,11 +1,20 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { prisma } from '../../db/prisma.js';
+import { toMatchProfile } from '../account/service.js';
+import { readSessionUser } from '../auth/session.js';
 import { getPublicJob, listPublicJobSitemap, listPublicJobs } from './service.js';
 import { jobSlugParams, listJobsQuery } from './schema.js';
 
 export const jobRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/', async (request) => {
     const query = listJobsQuery.parse(request.query);
-    return listPublicJobs(query);
+    const session = await readSessionUser(request);
+    const profile = session
+      ? await prisma.profile.findUnique({ where: { userId: session.id } })
+      : null;
+    return listPublicJobs(query, {
+      matchProfile: profile ? toMatchProfile(profile) : null,
+    });
   });
 
   fastify.get('/sitemap', async () => {

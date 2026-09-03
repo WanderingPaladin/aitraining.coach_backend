@@ -1,6 +1,8 @@
 import type { Job, Prisma } from '@prisma/client';
 import { prisma } from '../../db/prisma.js';
 import { notFound } from '../../lib/errors.js';
+import { jobToMatchOpportunity } from '../../lib/jobMatch.js';
+import { canScoreMatch, scoreOpportunity, type MatchProfile } from '../../lib/matchScore.js';
 import { PUBLISH_MIN_SCORE, REVIEW_MIN_SCORE } from '../job-collector/types.js';
 import type { listJobsQuery } from './schema.js';
 
@@ -36,8 +38,25 @@ export const publicJobDetailSelect = {
   expiresAt: true,
 } satisfies Prisma.JobSelect;
 
+export const publicJobMatchSelect = {
+  ...publicJobSelect,
+  descriptionText: true,
+  experienceLevel: true,
+} satisfies Prisma.JobSelect;
+
+type PublicJobMatch = Prisma.JobGetPayload<{ select: typeof publicJobMatchSelect }>;
 type PublicJob = Prisma.JobGetPayload<{ select: typeof publicJobSelect }>;
 type PublicJobDetail = Prisma.JobGetPayload<{ select: typeof publicJobDetailSelect }>;
+
+function scorePublicJob(job: PublicJobMatch, matchProfile: MatchProfile) {
+  return scoreOpportunity(matchProfile, jobToMatchOpportunity(job));
+}
+
+function serializeScoredJobs(
+  rows: Array<{ job: PublicJobMatch; match: ReturnType<typeof scoreOpportunity> | null }>,
+) {
+  return rows.map(({ job, match }) => serializePublicJob(job, { match: match ?? undefined }));
+}
 
 const publicWhere: Prisma.JobWhereInput = {
   isActive: true,
@@ -45,7 +64,10 @@ const publicWhere: Prisma.JobWhereInput = {
   relevanceScore: { gte: PUBLISH_MIN_SCORE },
 };
 
-export function serializePublicJob(job: PublicJob) {
+export function serializePublicJob(
+  job: PublicJob,
+  extras?: { match?: ReturnType<typeof scoreOpportunity> },
+) {
   return {
     id: job.id,
     slug: job.slug,
@@ -68,6 +90,7 @@ export function serializePublicJob(job: PublicJob) {
     sourceUrl: job.sourceUrl,
     createdAt: job.createdAt.toISOString(),
     updatedAt: job.updatedAt.toISOString(),
+    match: extras?.match ?? null,
   };
 }
 
@@ -81,7 +104,10 @@ export function serializePublicJobDetail(job: PublicJobDetail) {
   };
 }
 
-export async function listPublicJobs(input: ReturnType<typeof listJobsQuery.parse>) {
+export async function listPublicJobs(
+  input: ReturnType<typeof listJobsQuery.parse>,
+  options?: { matchProfile?: MatchProfile | null },
+) {
   const where: Prisma.JobWhereInput = {
     ...publicWhere,
     ...(input.remote ? { remoteType: 'remote' } : {}),
@@ -114,46 +140,101 @@ export async function listPublicJobs(input: ReturnType<typeof listJobsQuery.pars
       : {}),
   };
 
-  const orderBy: Prisma.JobOrderByWithRelationInput[] =
-    input.sort === 'relevant'
+  const canMatch = Boolean(options?.matchProfile && canScoreMatch(options.matchProfile));
+  const matchProfile = options?.matchProfile ?? null;
+  const useMatchSort = input.sort === 'match' && canMatch;
+
+  const orderBy: Prisma.JobOrderByWithRelationInput[] = useMatchSort
+    ? [{ postedAt: 'desc' }, { createdAt: 'desc' }]
+    : input.sort === 'relevant'
       ? [{ relevanceScore: 'desc' }, { postedAt: 'desc' }]
       : [{ postedAt: 'desc' }, { createdAt: 'desc' }];
 
   const skip = (input.page - 1) * input.pageSize;
-  const [total, jobs, categories, companies, employmentTypes] = await Promise.all([
+
+  const [total, filterMeta] = await Promise.all([
     prisma.job.count({ where }),
-    prisma.job.findMany({
-      where,
-      select: publicJobSelect,
-      orderBy,
-      skip,
-      take: input.pageSize,
-    }),
-    prisma.job.findMany({
-      where: publicWhere,
-      distinct: ['category'],
-      select: { category: true },
-    }),
-    prisma.job.findMany({
-      where: publicWhere,
-      distinct: ['companyName'],
-      select: { companyName: true },
-      orderBy: { companyName: 'asc' },
-      take: 100,
-    }),
-    prisma.job.findMany({
-      where: publicWhere,
-      distinct: ['employmentType'],
-      select: { employmentType: true },
-    }),
+    Promise.all([
+      prisma.job.findMany({
+        where: publicWhere,
+        distinct: ['category'],
+        select: { category: true },
+      }),
+      prisma.job.findMany({
+        where: publicWhere,
+        distinct: ['companyName'],
+        select: { companyName: true },
+        orderBy: { companyName: 'asc' },
+        take: 100,
+      }),
+      prisma.job.findMany({
+        where: publicWhere,
+        distinct: ['employmentType'],
+        select: { employmentType: true },
+      }),
+    ]),
   ]);
 
+  const [categories, companies, employmentTypes] = filterMeta;
+
+  if (useMatchSort && matchProfile) {
+    const allJobs = await prisma.job.findMany({
+      where,
+      select: publicJobMatchSelect,
+      take: 500,
+    });
+    const scored = allJobs
+      .map((job) => ({ job, match: scorePublicJob(job, matchProfile) }))
+      .sort(
+        (left, right) =>
+          (right.match?.score ?? -1) - (left.match?.score ?? -1) ||
+          (Date.parse(right.job.postedAt?.toISOString() ?? '') || 0) -
+            (Date.parse(left.job.postedAt?.toISOString() ?? '') || 0),
+      );
+    const pageJobs = scored.slice(skip, skip + input.pageSize);
+    return {
+      jobs: serializeScoredJobs(pageJobs),
+      total: scored.length,
+      page: input.page,
+      pageSize: input.pageSize,
+      pageCount: Math.max(1, Math.ceil(scored.length / input.pageSize)),
+      matchAvailable: true,
+      filters: {
+        categories: categories.map((item) => item.category).filter((item): item is string => Boolean(item)).sort(),
+        companies: companies.map((item) => item.companyName),
+        employmentTypes: employmentTypes
+          .map((item) => item.employmentType)
+          .filter((item): item is string => Boolean(item))
+          .sort(),
+      },
+    };
+  }
+
+  const select = canMatch ? publicJobMatchSelect : publicJobSelect;
+  const jobs = await prisma.job.findMany({
+    where,
+    select,
+    orderBy,
+    skip,
+    take: input.pageSize,
+  });
+
+  const serialized = canMatch && matchProfile
+    ? serializeScoredJobs(
+        (jobs as PublicJobMatch[]).map((job) => ({
+          job,
+          match: scorePublicJob(job, matchProfile),
+        })),
+      )
+    : (jobs as PublicJob[]).map((job) => serializePublicJob(job));
+
   return {
-    jobs: jobs.map(serializePublicJob),
+    jobs: serialized,
     total,
     page: input.page,
     pageSize: input.pageSize,
     pageCount: Math.max(1, Math.ceil(total / input.pageSize)),
+    matchAvailable: canMatch,
     filters: {
       categories: categories.map((item) => item.category).filter((item): item is string => Boolean(item)).sort(),
       companies: companies.map((item) => item.companyName),

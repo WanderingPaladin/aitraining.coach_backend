@@ -7,7 +7,7 @@ import { delay, SafeFetchError, safeFetchJson } from './http.js';
 import { ensureMarketplaceSources, MARKETPLACE_SOURCES } from './marketplace-sources.js';
 import { slugify } from './text.js';
 import type { SyncLogger } from './types.js';
-import { ensureCuratedOpportunities } from '../opportunities/ensure-seed.js';
+import { closeCuratedOpportunities } from '../opportunities/close-curated.js';
 
 export type { DiscoveredBoard };
 export { parseAtsUrl };
@@ -226,7 +226,7 @@ export async function discoverJobSources(logger: SyncLogger): Promise<DiscoverRe
       created: marketplace.created > 0,
     });
   }
-  const curated = await ensureCuratedOpportunities();
+  const curated = await closeCuratedOpportunities();
   logger.info(
     {
       boardsFound: boards.length,
@@ -245,8 +245,8 @@ export async function discoverJobSources(logger: SyncLogger): Promise<DiscoverRe
     sourcesCreated,
     sourcesUpdated,
     sourcesSkipped,
-    seedOpportunitiesClosed: 0,
-    seedOpportunitiesReopened: curated.reopened + curated.created,
+    seedOpportunitiesClosed: curated.closed,
+    seedOpportunitiesReopened: 0,
     boards: saved,
   };
 }
