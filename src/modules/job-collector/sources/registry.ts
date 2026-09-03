@@ -23,5 +23,5 @@ export const SOURCE_IDENTIFIER_HELP: Record<JobSourceType, string> = {
   lever: 'Site identifier from jobs.lever.co/{site} or api.lever.co/v0/postings/{site}',
   ashby: 'Board name from jobs.ashbyhq.com/{boardName}',
   jsonld: 'Leave the board token empty and set Careers URL to the public jobs page that embeds JobPosting JSON-LD',
-  custom: 'Adapter key for a registered custom module in job-collector/sources/custom',
+  custom: 'Registered adapter key: micro1 or mercor. These read public marketplace catalogs, not staff ATS boards.',
 };

@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { discoverJobSources } from '../job-collector/discover.js';
 import { SOURCE_IDENTIFIER_HELP } from '../job-collector/sources/registry.js';
 import { runJobSyncCycle } from '../job-collector/run.js';
 import {
@@ -21,6 +22,30 @@ export const jobAdminRoutes: FastifyPluginAsync = async (fastify) => {
     const params = jobSourceIdParams.parse(request.params);
     return getJobSource(params.id);
   });
+
+  fastify.post(
+    '/job-sources/discover',
+    {
+      config: {
+        rateLimit: { max: 2, timeWindow: '10 minutes' },
+      },
+    },
+    async (request) => {
+      const discovery = await discoverJobSources(request.log);
+      const cycle =
+        discovery.sourcesCreated + discovery.sourcesUpdated > 0
+          ? await runJobSyncCycle(request.log)
+          : { locked: false, staleMarked: 0, results: [] };
+      return {
+        discovery,
+        sync: {
+          locked: cycle.locked,
+          staleMarked: cycle.staleMarked,
+          results: cycle.results,
+        },
+      };
+    },
+  );
 
   fastify.post('/job-sources', async (request, reply) => {
     const body = upsertJobSourceBody.parse(request.body);

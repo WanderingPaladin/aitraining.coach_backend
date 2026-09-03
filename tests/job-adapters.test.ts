@@ -124,4 +124,11 @@ describe('JSON-LD extraction', () => {
     expect(first!.applyUrl).toBe('https://example.com/jobs/1');
     expect(first!.descriptionHtml).not.toContain('script');
   });
+
+  it('extracts JobPosting JSON from Next.js flight payloads', () => {
+    const html = `<script>self.__next_f.push([1,"{\\"@type\\":\\"JobPosting\\",\\"title\\":\\"AI Trainer\\",\\"url\\":\\"https://jobs.micro1.ai/post/11111111-1111-1111-1111-111111111111\\",\\"description\\":\\"Rate model answers.\\"}"])</script>`;
+    const postings = extractJobPostings(html);
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.title).toBe('AI Trainer');
+  });
 });

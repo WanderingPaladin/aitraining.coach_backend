@@ -18,7 +18,8 @@
     "db:generate": "prisma generate",
     "setup": "prisma migrate deploy && prisma db seed",
     "postinstall": "prisma generate",
-    "jobs:sync": "tsx scripts/sync-jobs.ts"
+    "jobs:sync": "tsx scripts/sync-jobs.ts",
+    "jobs:discover": "tsx scripts/discover-jobs.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

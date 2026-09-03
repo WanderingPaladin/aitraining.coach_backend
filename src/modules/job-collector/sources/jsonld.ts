@@ -67,16 +67,56 @@ export function extractJsonLdBlocks(html: string): unknown[] {
   return blocks;
 }
 
+export function decodeNextFlightPushPayload(rawJsString: string): string | null {
+  try {
+    return JSON.parse(`"${rawJsString.replace(/\r?\n/g, '\\n')}"`) as string;
+  } catch {
+    return null;
+  }
+}
+
+export function extractNextFlightPayloads(html: string): string[] {
+  const payloads: string[] = [];
+  const pattern = /self\.__next_f\.push\(\[1,"((?:\\.|[^"\\])*)"\]\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(html))) {
+    const decoded = decodeNextFlightPushPayload(match[1] ?? '');
+    if (decoded) {
+      payloads.push(decoded);
+    }
+  }
+  return payloads;
+}
+
+function parseJsonish(text: string): unknown {
+  const start = text.search(/[\[{]/);
+  if (start < 0) {
+    return null;
+  }
+  try {
+    return JSON.parse(text.slice(start));
+  } catch {
+    return null;
+  }
+}
+
+function collectJobPostings(value: unknown, into: JsonLdNode[]): void {
+  const nodes: JsonLdNode[] = [];
+  collectNodes(value, nodes);
+  for (const node of nodes) {
+    if (isJobPosting(node)) {
+      into.push(node);
+    }
+  }
+}
+
 export function extractJobPostings(html: string): JsonLdNode[] {
   const postings: JsonLdNode[] = [];
   for (const block of extractJsonLdBlocks(html)) {
-    const nodes: JsonLdNode[] = [];
-    collectNodes(block, nodes);
-    for (const node of nodes) {
-      if (isJobPosting(node)) {
-        postings.push(node);
-      }
-    }
+    collectJobPostings(block, postings);
+  }
+  for (const payload of extractNextFlightPayloads(html)) {
+    collectJobPostings(parseJsonish(payload), postings);
   }
   return postings;
 }

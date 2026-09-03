@@ -1,13 +1,9 @@
 import type { AccountActivityType, ApplicantStage, Prisma } from '@prisma/client';
-import { config } from '../../config.js';
 import { prisma } from '../../db/prisma.js';
+import { buildAppUrl } from '../../lib/app-url.js';
 import { conflict, unauthorized } from '../../lib/errors.js';
 import { sendSafely } from '../../lib/mailer.js';
 import { hashPassword, hashToken, randomToken, verifyPassword } from '../../lib/password.js';
-
-function appOrigin(): string {
-  return config.APP_ORIGIN.replace(/\/$/, '');
-}
 
 export function serializeUser(user: { id: string; email: string; emailVerifiedAt: Date | null }) {
   return {
@@ -85,7 +81,7 @@ export async function recordAccountActivity(
 }
 
 async function sendVerifyEmail(email: string, token: string): Promise<void> {
-  const url = `${appOrigin()}/verify-email?token=${encodeURIComponent(token)}`;
+  const url = buildAppUrl(`/verify-email?token=${encodeURIComponent(token)}`);
   await sendSafely({
     to: email,
     subject: 'Verify your AI Trainers account',
@@ -154,7 +150,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
       resetExpiresAt: new Date(Date.now() + 1000 * 60 * 60),
     },
   });
-  const url = `${appOrigin()}/reset-password?token=${encodeURIComponent(token)}`;
+  const url = buildAppUrl(`/reset-password?token=${encodeURIComponent(token)}`);
   await sendSafely({
     to: email,
     subject: 'Reset your AI Trainers password',

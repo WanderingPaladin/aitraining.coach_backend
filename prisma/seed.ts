@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
-import { OPPORTUNITY_SEED } from '../src/modules/opportunities/seed-data.js';
+import { ensureMarketplaceSources } from '../src/modules/job-collector/marketplace-sources.js';
+import { ensureCuratedOpportunities } from '../src/modules/opportunities/ensure-seed.js';
 
 const prisma = new PrismaClient();
 
@@ -28,25 +29,21 @@ async function seedAvailability() {
 }
 
 async function seedOpportunities() {
-  const existing = await prisma.opportunity.count();
-  if (existing > 0) {
-    console.log(`Opportunities already seeded (${existing} listings). Skipping.`);
-    return;
-  }
+  const result = await ensureCuratedOpportunities();
+  console.log(
+    `Curated opportunities: created ${result.created}, reopened ${result.reopened}.`,
+  );
+}
 
-  await prisma.opportunity.createMany({
-    data: OPPORTUNITY_SEED.map((item) => ({
-      ...item,
-      lastVerifiedAt: new Date(),
-    })),
-  });
-
-  console.log(`Seeded ${OPPORTUNITY_SEED.length} curated AI-training opportunities.`);
+async function seedMarketplaceSources() {
+  const result = await ensureMarketplaceSources();
+  console.log(`Marketplace job sources: created ${result.created}, updated ${result.updated}.`);
 }
 
 async function main() {
   await seedAvailability();
   await seedOpportunities();
+  await seedMarketplaceSources();
 }
 
 main()

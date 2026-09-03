@@ -1,5 +1,7 @@
-import { SafeFetchError } from '../../http.js';
 import type { JobSourceAdapter, NormalizedJob, RawJob, SourceConfig } from '../../types.js';
+import { SafeFetchError } from '../../http.js';
+import { MercorAdapter } from './mercor.js';
+import { Micro1Adapter } from './micro1.js';
 
 /**
  * Custom sources should be added as dedicated modules and registered here.
@@ -10,6 +12,9 @@ export const customAdapters = new Map<string, JobSourceAdapter>();
 export function registerCustomAdapter(key: string, adapter: JobSourceAdapter): void {
   customAdapters.set(key.trim().toLowerCase(), adapter);
 }
+
+registerCustomAdapter('micro1', new Micro1Adapter());
+registerCustomAdapter('mercor', new MercorAdapter());
 
 export class CustomAdapter implements JobSourceAdapter {
   async fetchJobs(source: SourceConfig): Promise<RawJob[]> {

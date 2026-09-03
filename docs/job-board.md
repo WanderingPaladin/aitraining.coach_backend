@@ -45,9 +45,11 @@ interface JobSourceAdapter {
 | `lever` | Site slug | `https://api.lever.co/v0/postings/{site}?mode=json` |
 | `ashby` | Board name | `https://api.ashbyhq.com/posting-api/job-board/{boardName}?includeCompensation=true` |
 | `jsonld` | Careers URL | Fetches HTML and reads `JobPosting` JSON-LD. Honors robots.txt. |
-| `custom` | Adapter key | Register a module in `src/modules/job-collector/sources/custom/` |
+| `custom` | Adapter key `micro1` or `mercor` | Public marketplace catalogs (micro1 sitemap + posting JSON-LD; Mercor `/explore` HTML). Honors robots.txt. |
 
 Do not invent board IDs. Add a source only when you have the real public identifier.
+
+Snorkel Greenhouse (`snorkelai`) and Mercor Ashby (`mercor`) are staff career boards and are skipped. DataAnnotation has no public per-role job feed; curated `Opportunity` cards remain for that platform.
 
 ### Add a Greenhouse source
 
@@ -103,10 +105,11 @@ Manual crawl:
 
 ```bash
 cd aitraining.coach_backend
+npm run jobs:discover
 npm run jobs:sync
-# or one source:
-npx tsx scripts/sync-jobs.ts SOURCE_ID
 ```
+
+`jobs:discover` ensures micro1/Mercor marketplace sources, reopens curated seed listings, and (when `SERPER_API_KEY` is set) searches Google for Greenhouse/Lever/Ashby boards. It does **not** close curated opportunities. Admin: Job sources → Search Google for boards.
 
 Cron / GitHub Action against the API:
 
@@ -124,6 +127,7 @@ Admin UI: Job sources → Sync now.
 | `JOB_SYNC_SECRET` | Production recommended | Bearer secret for `/v1/internal/jobs/sync`. Falls back to `ADMIN_API_KEY` if unset. Never send this to the browser. |
 | `JOB_SYNC_ENABLED` | No | Default on except during tests. Set `false` to disable the in-process scheduler. |
 | `JOB_SYNC_INTERVAL_MINUTES` | No | Default `360`. |
+| `SERPER_API_KEY` | For discovery | Google search via [Serper](https://serper.dev). Never send this to the browser. |
 | `BOOKING_API_ORIGIN` | Dashboard SSR | Used by `/opportunities` and the sitemap to reach the API. Local default `http://127.0.0.1:4000`. |
 | `SITE_ORIGIN` | Dashboard SEO | Canonical/sitemap origin. Default `https://aitrainers.coach`. |
 

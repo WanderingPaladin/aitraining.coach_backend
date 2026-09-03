@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { z } from 'zod';
+import { getAppUrl } from './lib/app-url.js';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -11,7 +12,7 @@ const envSchema = z.object({
   ADMIN_NAME: z.string().trim().min(1).max(80).default('Admin'),
   SESSION_SECRET: z.string().default(''),
   CORS_ORIGIN: z.string().default('*'),
-  APP_ORIGIN: z.string().url().default('http://localhost:3000'),
+  APP_URL: z.string().url(),
   INTRO_CALL_MEETING_URL: z.string().url(),
   COACH_EMAIL: z.string().email(),
   MICROSOFT_TENANT_ID: z.string().default(''),
@@ -32,12 +33,16 @@ const envSchema = z.object({
       return process.env.NODE_ENV !== 'test';
     }),
   JOB_SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(15).max(24 * 60).default(360),
+  SERPER_API_KEY: z.string().default(''),
 });
 
 export type Config = z.infer<typeof envSchema>;
 
 function loadConfig(): Config {
-  const parsed = envSchema.safeParse(process.env);
+  const parsed = envSchema.safeParse({
+    ...process.env,
+    APP_URL: getAppUrl(process.env),
+  });
   if (!parsed.success) {
     const details = parsed.error.issues
       .map((issue) => `${issue.path.join('.') || 'env'}: ${issue.message}`)
@@ -48,6 +53,7 @@ function loadConfig(): Config {
 }
 
 export const config = loadConfig();
+export { buildAppUrl, getAppUrl } from './lib/app-url.js';
 
 export const corsOrigins = config.CORS_ORIGIN.split(',')
   .map((origin) => origin.trim())

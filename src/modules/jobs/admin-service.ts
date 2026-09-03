@@ -55,6 +55,9 @@ function validateSourceInput(input: SourceInput): void {
       throw badRequest('INVALID_SOURCE', 'JSON-LD sources require a careers URL');
     }
   }
+  if (input.sourceType === 'custom' && !input.boardToken.trim()) {
+    throw badRequest('INVALID_SOURCE', 'Custom sources require a registered adapter key as the board token');
+  }
   if (input.careersUrl.trim()) {
     try {
       assertPublicUrl(input.careersUrl.trim());

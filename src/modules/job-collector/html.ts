@@ -55,6 +55,50 @@ function safeHref(raw: string): string | null {
   return null;
 }
 
+function escapeText(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function inlineMarkdown(value: string): string {
+  return escapeText(value).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`([^`]+)`/g, '$1');
+}
+
+/** Conservative Markdown subset for marketplace descriptions. Output is passed through sanitizeJobHtml. */
+export function markdownToJobHtml(markdown: string): string {
+  const source = markdown.replace(/\r\n/g, '\n').trim();
+  if (!source) {
+    return '';
+  }
+  const blocks = source.split(/\n{2,}/);
+  const html: string[] = [];
+  for (const block of blocks) {
+    const lines = block.split('\n').map((line) => line.trim()).filter(Boolean);
+    if (lines.length === 0) {
+      continue;
+    }
+    const heading = /^(#{1,3})\s+(.+)$/.exec(lines[0] ?? '');
+    if (heading) {
+      const marks = heading[1] ?? '#';
+      const level = Math.min(marks.length + 1, 4);
+      html.push(`<h${level}>${inlineMarkdown(heading[2] ?? '')}</h${level}>`);
+      lines.shift();
+      if (lines.length === 0) {
+        continue;
+      }
+    }
+    if (lines.every((line) => /^[-*]\s+/.test(line))) {
+      html.push(`<ul>${lines.map((line) => `<li>${inlineMarkdown(line.replace(/^[-*]\s+/, ''))}</li>`).join('')}</ul>`);
+      continue;
+    }
+    html.push(`<p>${lines.map((line) => inlineMarkdown(line)).join('<br />')}</p>`);
+  }
+  return sanitizeJobHtml(html.join(''));
+}
+
 export function sanitizeJobHtml(html: string): string {
   if (!html) {
     return '';
