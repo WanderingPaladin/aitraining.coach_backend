@@ -4,15 +4,24 @@ import { JOB_CATEGORIES } from '../job-collector/types.js';
 export const listJobsQuery = z.object({
   q: z.string().trim().max(120).optional().default(''),
   remote: z
-    .enum(['true', 'false', ''])
+    .enum(['true', 'false', '1', 'remote', 'hybrid', 'onsite', 'on-site', ''])
     .optional()
     .default('')
-    .transform((value) => (value === 'true' ? true : value === 'false' ? false : undefined)),
+    .transform((value) => {
+      if (value === 'true' || value === '1' || value === 'remote') return 'remote';
+      if (value === 'hybrid') return 'hybrid';
+      if (value === 'onsite' || value === 'on-site') return 'onsite';
+      return undefined;
+    }),
   location: z.string().trim().max(80).optional().default(''),
   category: z.string().trim().max(80).optional().default(''),
   employmentType: z.string().trim().max(40).optional().default(''),
   company: z.string().trim().max(80).optional().default(''),
-  sort: z.enum(['newest', 'relevant', 'match']).optional().default('newest'),
+  platform: z.string().trim().max(80).optional().default(''),
+  experience: z.enum(['', 'beginner', 'entry', 'mid', 'senior', 'lead']).optional().default(''),
+  pay: z.enum(['', 'compensation', 'hourly', 'annual']).optional().default(''),
+  postedWithin: z.enum(['', '1', '3', '7', '30']).optional().default(''),
+  sort: z.enum(['newest', 'relevant', 'match', 'salary']).optional().default('newest'),
   page: z.coerce.number().int().min(1).optional().default(1),
   pageSize: z.coerce.number().int().min(1).max(50).optional().default(20),
 });

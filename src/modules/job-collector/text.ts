@@ -94,3 +94,17 @@ export function firstNonEmpty(...values: Array<unknown>): string | null {
   }
   return null;
 }
+
+export function excerptDescription(text: string | null | undefined, max = 220): string | null {
+  const cleaned = collapseWhitespace(text ?? '');
+  if (!cleaned) {
+    return null;
+  }
+  if (cleaned.length <= max) {
+    return cleaned;
+  }
+  const slice = cleaned.slice(0, max);
+  const lastSpace = slice.lastIndexOf(' ');
+  const trimmed = slice.slice(0, lastSpace > Math.floor(max * 0.6) ? lastSpace : max).trim();
+  return `${trimmed}…`;
+}

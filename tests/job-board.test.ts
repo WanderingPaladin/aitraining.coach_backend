@@ -4,7 +4,9 @@ import { buildFingerprintKey, fingerprintJob, normalizeFingerprintPart } from '.
 import { sanitizeJobHtml } from '../src/modules/job-collector/html.js';
 import { assertPublicUrl, isPrivateIp } from '../src/modules/job-collector/http.js';
 import { assignCategory, scoreRelevance } from '../src/modules/job-collector/relevance.js';
+import { excerptDescription } from '../src/modules/job-collector/text.js';
 import { isPublicJob, type NormalizedJob } from '../src/modules/job-collector/types.js';
+import { listJobsQuery } from '../src/modules/jobs/schema.js';
 
 function job(overrides: Partial<NormalizedJob> & Pick<NormalizedJob, 'title'>): NormalizedJob {
   return {
@@ -136,6 +138,27 @@ describe('public visibility', () => {
     expect(isPublicJob({ isActive: false, isDuplicate: false, relevanceScore: 90 })).toBe(false);
     expect(isPublicJob({ isActive: true, isDuplicate: true, relevanceScore: 90 })).toBe(false);
     expect(isPublicJob({ isActive: true, isDuplicate: false, relevanceScore: 39 })).toBe(false);
+  });
+});
+
+describe('public job query parsing', () => {
+  it('maps remote aliases and new sort/pay filters', () => {
+    expect(listJobsQuery.parse({ remote: '1' }).remote).toBe('remote');
+    expect(listJobsQuery.parse({ remote: 'hybrid' }).remote).toBe('hybrid');
+    expect(listJobsQuery.parse({ sort: 'salary', pay: 'hourly', postedWithin: '7', experience: 'beginner' })).toMatchObject({
+      sort: 'salary',
+      pay: 'hourly',
+      postedWithin: '7',
+      experience: 'beginner',
+    });
+  });
+});
+
+describe('description excerpts', () => {
+  it('returns a short summary without inventing copy', () => {
+    expect(excerptDescription('')).toBeNull();
+    expect(excerptDescription('  Short role.  ')).toBe('Short role.');
+    expect(excerptDescription('A'.repeat(300))?.endsWith('…')).toBe(true);
   });
 });
 
