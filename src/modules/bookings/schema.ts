@@ -3,6 +3,8 @@ import { z } from 'zod';
 export const createBookingBody = z.object({
   applicationId: z.string().min(1),
   startsAt: z.string().datetime({ offset: true }),
+  visitorId: z.string().uuid().optional(),
+  sessionId: z.string().uuid().optional(),
 });
 
 export const bookingIdParams = z.object({

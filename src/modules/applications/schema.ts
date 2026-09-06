@@ -100,6 +100,8 @@ export const createApplicationBody = z.object({
       message: 'Please confirm that you meet the current U.S. eligibility requirement.',
     }),
   }),
+  visitorId: z.string().uuid().optional(),
+  sessionId: z.string().uuid().optional(),
 });
 
 const optionalDatetime = z

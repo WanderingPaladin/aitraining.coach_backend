@@ -9,6 +9,8 @@ import { prisma } from '../../db/prisma.js';
 import { badRequest, conflict, notFound } from '../../lib/errors.js';
 import { isPublicIp, lookupIpLocation } from '../../lib/geo.js';
 import { sendApplicationReceived } from '../../lib/mailer.js';
+import { isUuid } from '../tracking/sanitize.js';
+import { recordApplicationSubmitted } from '../tracking/service.js';
 import {
   csvEscape,
   experienceLabel,
@@ -37,7 +39,62 @@ type ApplicationWithAdmin = Application & {
     metadata: Prisma.JsonValue;
     createdAt: Date;
   }>;
+  bookings?: Array<{
+    id: string;
+    status: string;
+    attendance?: string;
+    startsAt: Date;
+    endsAt?: Date;
+    meetingUrl?: string | null;
+    createdAt?: Date;
+    cancelledAt?: Date | null;
+  }>;
+  platformProgress?: Array<{ platform: string; status: string }>;
+  visitor?: {
+    firstSource: string;
+    firstSeenAt: Date;
+    landingPage: string;
+    referrer: string | null;
+    utmSource: string | null;
+    utmMedium: string | null;
+    utmCampaign: string | null;
+    utmContent: string | null;
+    utmTerm: string | null;
+  } | null;
+  journeyEvents?: Array<{
+    id: string;
+    eventType: string;
+    platform: string | null;
+    opportunityId: string | null;
+    metadata: Prisma.JsonValue;
+    pagePath: string | null;
+    createdBy: string;
+    createdAt: Date;
+  }>;
 };
+
+function latestIntroCall(application: ApplicationWithAdmin) {
+  const booking = application.bookings?.[0];
+  if (!booking) {
+    return null;
+  }
+  return {
+    id: booking.id,
+    status: booking.status,
+    attendance: booking.attendance ?? (booking.status === 'cancelled' ? 'cancelled' : 'scheduled'),
+    startsAt: booking.startsAt.toISOString(),
+  };
+}
+
+function platformSummary(rows?: Array<{ platform: string; status: string }>) {
+  if (!rows?.length) {
+    return null;
+  }
+  return rows
+    .slice(0, 3)
+    .map((row) => `${row.platform} · ${row.status.replace(/_/g, ' ')}`)
+    .join(', ');
+}
 
 export function serializeApplication(application: ApplicationWithAdmin) {
   return {
@@ -72,6 +129,58 @@ export function serializeApplication(application: ApplicationWithAdmin) {
     tags: application.tags,
     nextActionAt: application.nextActionAt?.toISOString() ?? null,
     demoScheduledAt: application.demoScheduledAt?.toISOString() ?? null,
+    visitorId: application.visitorId,
+    journeyStage: application.journeyStage,
+    firstSource: application.firstSource ?? application.visitor?.firstSource ?? null,
+    utmSource: application.utmSource ?? application.visitor?.utmSource ?? null,
+    utmMedium: application.utmMedium ?? application.visitor?.utmMedium ?? null,
+    utmCampaign: application.utmCampaign ?? application.visitor?.utmCampaign ?? null,
+    utmContent: application.utmContent ?? application.visitor?.utmContent ?? null,
+    utmTerm: application.utmTerm ?? application.visitor?.utmTerm ?? null,
+    lastActivityAt: application.lastActivityAt?.toISOString() ?? application.updatedAt.toISOString(),
+    introCall: latestIntroCall(application),
+    platformProgressSummary: platformSummary(application.platformProgress),
+    visitor: application.visitor
+      ? {
+          firstSource: application.visitor.firstSource,
+          firstSeenAt: application.visitor.firstSeenAt.toISOString(),
+          landingPage: application.visitor.landingPage,
+          referrer: application.visitor.referrer,
+          utmSource: application.visitor.utmSource,
+          utmMedium: application.visitor.utmMedium,
+          utmCampaign: application.visitor.utmCampaign,
+          utmContent: application.visitor.utmContent,
+          utmTerm: application.visitor.utmTerm,
+        }
+      : null,
+    journeyEvents: application.journeyEvents?.map((event) => ({
+      id: event.id,
+      eventType: event.eventType,
+      platform: event.platform,
+      opportunityId: event.opportunityId,
+      metadata: event.metadata,
+      pagePath: event.pagePath,
+      createdBy: event.createdBy,
+      createdAt: event.createdAt.toISOString(),
+    })),
+    platformProgress: application.platformProgress?.map((row) => ({
+      ...row,
+      appliedAt:
+        'appliedAt' in row && row.appliedAt instanceof Date ? row.appliedAt.toISOString() : null,
+      assessmentAt:
+        'assessmentAt' in row && row.assessmentAt instanceof Date ? row.assessmentAt.toISOString() : null,
+      interviewAt:
+        'interviewAt' in row && row.interviewAt instanceof Date ? row.interviewAt.toISOString() : null,
+      resultAt: 'resultAt' in row && row.resultAt instanceof Date ? row.resultAt.toISOString() : null,
+      projectStartedAt:
+        'projectStartedAt' in row && row.projectStartedAt instanceof Date
+          ? row.projectStartedAt.toISOString()
+          : null,
+      createdAt:
+        'createdAt' in row && row.createdAt instanceof Date ? row.createdAt.toISOString() : undefined,
+      updatedAt:
+        'updatedAt' in row && row.updatedAt instanceof Date ? row.updatedAt.toISOString() : undefined,
+    })),
     resume: null as { fileName: string; contentType: string } | null,
     createdAt: application.createdAt.toISOString(),
     updatedAt: application.updatedAt.toISOString(),
@@ -204,7 +313,22 @@ export async function createOrUpdateApplication(
     ipAddress: clientIp ?? geo?.ip ?? null,
     ipLocation: input.ipLocation || geo?.label || null,
     status: 'submitted',
+    journeyStage: 'application_submitted',
+    lastActivityAt: new Date(),
   };
+
+  if (isUuid(input.visitorId)) {
+    const visitor = await prisma.visitor.findUnique({ where: { id: input.visitorId } });
+    if (visitor) {
+      data.visitor = { connect: { id: visitor.id } };
+      data.firstSource = visitor.firstSource;
+      data.utmSource = visitor.utmSource;
+      data.utmMedium = visitor.utmMedium;
+      data.utmCampaign = visitor.utmCampaign;
+      data.utmContent = visitor.utmContent;
+      data.utmTerm = visitor.utmTerm;
+    }
+  }
 
   const created = !existing || existing.status === 'declined';
   const application =
@@ -218,6 +342,12 @@ export async function createOrUpdateApplication(
       type: 'submitted',
       actor: 'system',
       message: 'Application submitted',
+    });
+    await recordApplicationSubmitted({
+      applicationId: application.id,
+      visitorId: input.visitorId,
+      sessionId: input.sessionId,
+      userId: application.userId,
     });
   }
 
@@ -255,6 +385,31 @@ export async function listApplications(input: ListApplicationsQuery) {
       orderBy,
       skip: (input.page - 1) * input.pageSize,
       take: input.pageSize,
+      include: {
+        bookings: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { id: true, status: true, attendance: true, startsAt: true },
+        },
+        platformProgress: {
+          orderBy: { updatedAt: 'desc' },
+          take: 3,
+          select: { platform: true, status: true },
+        },
+        visitor: {
+          select: {
+            firstSource: true,
+            firstSeenAt: true,
+            landingPage: true,
+            referrer: true,
+            utmSource: true,
+            utmMedium: true,
+            utmCampaign: true,
+            utmContent: true,
+            utmTerm: true,
+          },
+        },
+      },
     }),
     prisma.application.count({ where }),
   ]);
@@ -285,6 +440,13 @@ export function applicationsToCsv(items: Application[]): string {
     'situation',
     'timezone',
     'stage',
+    'journeyStage',
+    'source',
+    'utmSource',
+    'utmMedium',
+    'utmCampaign',
+    'ipAddress',
+    'ipLocation',
     'assignee',
     'tags',
     'submittedAt',
@@ -304,6 +466,13 @@ export function applicationsToCsv(items: Application[]): string {
       situationLabel(item.applicantStage) ?? '',
       item.timezone,
       PIPELINE_LABELS[item.pipelineStage],
+      item.journeyStage,
+      item.firstSource ?? '',
+      item.utmSource ?? '',
+      item.utmMedium ?? '',
+      item.utmCampaign ?? '',
+      item.ipAddress ?? '',
+      item.ipLocation ?? '',
       item.assignee ?? '',
       item.tags.join('; '),
       item.createdAt.toISOString(),
@@ -323,10 +492,39 @@ export async function getApplication(id: string) {
       bookings: { orderBy: { startsAt: 'desc' } },
       notes: { orderBy: { createdAt: 'desc' } },
       activities: { orderBy: { createdAt: 'desc' }, take: 50 },
+      platformProgress: { orderBy: { updatedAt: 'desc' } },
+      journeyEvents: { orderBy: { createdAt: 'asc' }, take: 200 },
+      visitor: {
+        select: {
+          firstSource: true,
+          firstSeenAt: true,
+          landingPage: true,
+          referrer: true,
+          utmSource: true,
+          utmMedium: true,
+          utmCampaign: true,
+          utmContent: true,
+          utmTerm: true,
+        },
+      },
     },
   });
   if (!application) {
     throw notFound('APPLICATION_NOT_FOUND', 'Application not found');
+  }
+  if (application.visitorId) {
+    const extraEvents = await prisma.candidateEvent.findMany({
+      where: {
+        visitorId: application.visitorId,
+        applicationId: null,
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 200,
+    });
+    const existing = new Set(application.journeyEvents.map((event) => event.id));
+    application.journeyEvents = [...extraEvents.filter((event) => !existing.has(event.id)), ...application.journeyEvents].sort(
+      (left, right) => left.createdAt.getTime() - right.createdAt.getTime(),
+    );
   }
   const [previous, next] = await Promise.all([
     prisma.application.findFirst({

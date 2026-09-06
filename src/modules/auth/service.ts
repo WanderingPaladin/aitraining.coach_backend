@@ -4,6 +4,7 @@ import { buildAppUrl } from '../../lib/app-url.js';
 import { conflict, unauthorized } from '../../lib/errors.js';
 import { sendSafely } from '../../lib/mailer.js';
 import { hashPassword, hashToken, randomToken, verifyPassword } from '../../lib/password.js';
+import { linkVisitorToUser } from '../tracking/identity.js';
 
 export function serializeUser(user: { id: string; email: string; emailVerifiedAt: Date | null }) {
   return {
@@ -58,6 +59,7 @@ export async function linkApplicationsForUser(userId: string, email: string): Pr
   }
 
   await recordActivity(userId, 'application_linked', 'Linked an existing AI Trainers application to this account');
+  await linkVisitorToUser(userId);
 
   const booked = await prisma.booking.findFirst({
     where: { application: { userId }, status: 'confirmed' },

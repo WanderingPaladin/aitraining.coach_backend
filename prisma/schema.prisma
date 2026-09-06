@@ -84,6 +84,9 @@ model User {
   applications         Application[]
   savedOpportunities   SavedOpportunity[]
   activities           AccountActivity[]
+  feedback             Feedback[]
+  visitors             Visitor[]
+  journeyEvents        CandidateEvent[]
 }
 
 model UserSession {
@@ -206,11 +209,23 @@ model Application {
   tags                   String[]          @default([])
   nextActionAt           DateTime?
   demoScheduledAt        DateTime?
+  visitorId              String?
+  visitor                Visitor?          @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  journeyStage           JourneyStage      @default(application_submitted)
+  firstSource            String?
+  utmSource              String?
+  utmMedium              String?
+  utmCampaign            String?
+  utmContent             String?
+  utmTerm                String?
+  lastActivityAt         DateTime?
   createdAt              DateTime          @default(now())
   updatedAt              DateTime          @updatedAt
   bookings               Booking[]
   notes                  ApplicationNote[]
   activities             ApplicationActivity[]
+  journeyEvents          CandidateEvent[]
+  platformProgress       CandidateOpportunity[]
 
   @@index([email])
   @@index([userId])
@@ -218,6 +233,10 @@ model Application {
   @@index([pipelineStage])
   @@index([assignee])
   @@index([createdAt])
+  @@index([visitorId])
+  @@index([journeyStage])
+  @@index([firstSource])
+  @@index([lastActivityAt])
 }
 
 model ApplicationNote {
@@ -269,11 +288,13 @@ model Booking {
   cancelToken        String        @unique
   confirmedStartsAt  DateTime?     @unique
   cancelledAt        DateTime?
+  attendance         IntroCallAttendance @default(scheduled)
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
   @@index([applicationId])
   @@index([startsAt, status])
+  @@index([attendance])
 }
 
 enum JobSourceType {
@@ -385,4 +406,185 @@ model JobSyncLock {
   owner       String?
   lockedAt    DateTime?
   lockedUntil DateTime?
+}
+
+enum FeedbackStatus {
+  new
+  reviewed
+  planned
+  resolved
+  archived
+}
+
+model Feedback {
+  id           String         @id @default(cuid())
+  category     String
+  subcategory  String?
+  message      String         @default("")
+  rating       Int?
+  pagePath     String
+  pageUrl      String         @default("")
+  userId       String?
+  user         User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email        String?
+  browser      String?
+  deviceType   String?
+  screenWidth  Int?
+  screenHeight Int?
+  referrer     String?
+  userAgent    String?
+  status       FeedbackStatus @default(new)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([status, createdAt])
+  @@index([category, createdAt])
+  @@index([pagePath])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+enum JourneyStage {
+  visitor
+  application_started
+  application_submitted
+  intro_call_booked
+  intro_call_attended
+  coaching_started
+  platform_applied
+  platform_assessment
+  platform_interview
+  platform_interview_passed
+  project_started
+  inactive
+}
+
+enum IntroCallAttendance {
+  scheduled
+  rescheduled
+  cancelled
+  attended
+  no_show
+  completed
+}
+
+enum CandidateEventActor {
+  system
+  candidate
+  admin
+}
+
+enum PlatformProgressStatus {
+  interested
+  applied
+  assessment_invited
+  assessment_started
+  assessment_completed
+  interview_invited
+  interview_scheduled
+  interview_completed
+  passed
+  rejected
+  waitlisted
+  project_received
+  working
+  inactive
+}
+
+model Visitor {
+  id              String           @id
+  userId          String?
+  user            User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  firstSeenAt     DateTime         @default(now())
+  lastSeenAt      DateTime         @default(now())
+  landingPage     String           @default("/")
+  referrer        String?
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String?
+  utmContent      String?
+  utmTerm         String?
+  firstSource     String           @default("direct")
+  lastLandingPage String?
+  lastReferrer    String?
+  lastUtmSource   String?
+  lastUtmMedium   String?
+  lastUtmCampaign String?
+  sessions        VisitorSession[]
+  events          CandidateEvent[]
+  applications    Application[]
+
+  @@index([userId])
+  @@index([firstSeenAt])
+  @@index([firstSource])
+  @@index([lastSeenAt])
+}
+
+model VisitorSession {
+  id          String   @id
+  visitorId   String
+  visitor     Visitor  @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  userId      String?
+  landingPage String   @default("/")
+  referrer    String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmContent  String?
+  utmTerm     String?
+  deviceType  String?
+  browser     String?
+  startedAt   DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([visitorId, startedAt])
+  @@index([lastSeenAt])
+}
+
+model CandidateEvent {
+  id              String              @id @default(cuid())
+  visitorId       String?
+  visitor         Visitor?            @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  applicationId   String?
+  application     Application?        @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  userId          String?
+  user            User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionId       String?
+  bookingId       String?
+  eventType       String
+  platform        String?
+  opportunityId   String?
+  metadata        Json?
+  pagePath        String?
+  createdBy       CandidateEventActor @default(system)
+  idempotencyKey  String?             @unique
+  createdAt       DateTime            @default(now())
+
+  @@index([applicationId, createdAt])
+  @@index([visitorId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+model CandidateOpportunity {
+  id                String                  @id @default(cuid())
+  applicationId     String
+  application       Application             @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  platform          String
+  opportunityId     String?
+  opportunityTitle  String?
+  status            PlatformProgressStatus  @default(interested)
+  appliedAt         DateTime?
+  assessmentAt      DateTime?
+  interviewAt       DateTime?
+  resultAt          DateTime?
+  projectStartedAt  DateTime?
+  notes             String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@index([applicationId, updatedAt])
+  @@index([status])
+  @@index([platform])
 }

@@ -7,6 +7,7 @@ import { sendBookingCancelled, sendBookingConfirmation } from '../../lib/mailer.
 import { cancelIntroCallEvent, createIntroCallEvent, isMicrosoftGraphConfigured } from '../../lib/graph.js';
 import { isOfferedSlot } from '../availability/slots.js';
 import { toSlotRule } from '../availability/service.js';
+import { recordBookingCancelled, recordBookingConfirmed } from '../tracking/service.js';
 
 function newCancelToken(): string {
   return randomBytes(24).toString('hex');
@@ -20,13 +21,19 @@ export function serializeBooking(booking: Booking, options?: { includeCancelToke
     endsAt: booking.endsAt.toISOString(),
     status: booking.status,
     meetingUrl: booking.meetingUrl,
+    attendance: booking.attendance,
     createdAt: booking.createdAt.toISOString(),
     cancelledAt: booking.cancelledAt?.toISOString() ?? null,
     ...(options?.includeCancelToken ? { cancelToken: booking.cancelToken } : {}),
   };
 }
 
-export async function createBooking(input: { applicationId: string; startsAt: string }) {
+export async function createBooking(input: {
+  applicationId: string;
+  startsAt: string;
+  visitorId?: string;
+  sessionId?: string;
+}) {
   const startsAt = new Date(input.startsAt);
   if (Number.isNaN(startsAt.getTime())) {
     throw badRequest('INVALID_SLOT', 'startsAt must be a valid datetime');
@@ -73,6 +80,11 @@ export async function createBooking(input: { applicationId: string; startsAt: st
     microsoftEventId = meeting.eventId;
   }
 
+  const previousCancelled = await prisma.booking.findFirst({
+    where: { applicationId: application.id, status: 'cancelled' },
+    select: { id: true },
+  });
+
   try {
     const booking = await prisma.$transaction(async (tx) => {
       const created = await tx.booking.create({
@@ -81,6 +93,7 @@ export async function createBooking(input: { applicationId: string; startsAt: st
           startsAt: offered.startsAt,
           endsAt: offered.endsAt,
           status: 'confirmed',
+          attendance: previousCancelled ? 'rescheduled' : 'scheduled',
           meetingUrl,
           microsoftEventId,
           cancelToken: newCancelToken(),
@@ -93,6 +106,13 @@ export async function createBooking(input: { applicationId: string; startsAt: st
         data: {
           ...(application.status === 'submitted' ? { status: 'booked' } : {}),
           demoScheduledAt: offered.startsAt,
+          journeyStage:
+            application.journeyStage === 'application_submitted' ||
+            application.journeyStage === 'application_started' ||
+            application.journeyStage === 'visitor'
+              ? 'intro_call_booked'
+              : application.journeyStage,
+          lastActivityAt: new Date(),
         },
       });
       await tx.applicationActivity.create({
@@ -106,6 +126,14 @@ export async function createBooking(input: { applicationId: string; startsAt: st
       });
 
       return created;
+    });
+
+    await recordBookingConfirmed({
+      applicationId: application.id,
+      bookingId: booking.id,
+      visitorId: application.visitorId ?? input.visitorId,
+      userId: application.userId,
+      rescheduled: Boolean(previousCancelled),
     });
 
     await sendBookingConfirmation({
@@ -163,6 +191,7 @@ export async function cancelBooking(id: string, token?: string, asAdmin = false)
       where: { id },
       data: {
         status: 'cancelled',
+        attendance: 'cancelled',
         confirmedStartsAt: null,
         cancelledAt: new Date(),
       },
@@ -181,6 +210,13 @@ export async function cancelBooking(id: string, token?: string, asAdmin = false)
     }
 
     return cancelled;
+  });
+
+  await recordBookingCancelled({
+    applicationId: updated.applicationId,
+    bookingId: updated.id,
+    visitorId: updated.application.visitorId,
+    userId: updated.application.userId,
   });
 
   await sendBookingCancelled({
