@@ -1,8 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { feedbackIdParams, listFeedbackQuery, patchFeedbackBody } from './schema.js';
-import { listFeedback, serializeFeedback, updateFeedbackStatus } from './service.js';
+import { listFeedback, getFeedbackSummary, serializeFeedback, updateFeedbackStatus } from './service.js';
 
 export const feedbackAdminRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.get('/feedback/summary', async () => getFeedbackSummary());
+
   fastify.get('/feedback', async (request) => {
     const query = listFeedbackQuery.parse(request.query);
     const result = await listFeedback(query);

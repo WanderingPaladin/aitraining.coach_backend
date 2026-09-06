@@ -33,11 +33,23 @@ export type MatchReason = {
   text: string;
 };
 
+export type MatchFactorStatus = 'matched' | 'partial' | 'missing';
+
+export type MatchFactor = {
+  key: string;
+  label: string;
+  status: MatchFactorStatus;
+  description: string;
+};
+
 export type OpportunityMatch = {
   score: number;
   label: string;
   reasons: MatchReason[];
   hardMismatches: string[];
+  matchedFactors: MatchFactor[];
+  partialFactors: MatchFactor[];
+  missingFactors: MatchFactor[];
 };
 
 export type ReadinessScore = {
@@ -55,6 +67,71 @@ const WEIGHTS = {
   platform: 5,
   completeness: 5,
 } as const;
+
+const FACTOR_COPY: Record<
+  keyof typeof WEIGHTS,
+  { label: string; matched: string; partial: string; missing: string }
+> = {
+  domain: {
+    label: 'Professional background',
+    matched: 'Your professional background aligns with this opportunity.',
+    partial: 'Your background is somewhat related to this opportunity.',
+    missing: 'This listing focuses on a different professional domain.',
+  },
+  skills: {
+    label: 'Relevant skills',
+    matched: 'Your profile includes skills related to this opportunity.',
+    partial: 'Some of your skills overlap with this listing.',
+    missing: 'Add more skills that appear in this opportunity.',
+  },
+  experience: {
+    label: 'Relevant domain experience',
+    matched: 'Your experience meets what this listing prefers.',
+    partial: 'Your experience is close to what this listing prefers.',
+    missing: 'This listing prefers more domain experience.',
+  },
+  location: {
+    label: 'U.S. eligibility',
+    matched: 'Your U.S. eligibility matches this listing.',
+    partial: 'Location eligibility is only partly confirmed.',
+    missing: 'This listing typically requires U.S. eligibility.',
+  },
+  availability: {
+    label: 'Availability and remote preference',
+    matched: 'Your availability and remote preference match this listing.',
+    partial: 'Your availability is a partial match for this listing.',
+    missing: 'Add weekly availability or a remote preference to improve this match.',
+  },
+  platform: {
+    label: 'Platform experience',
+    matched: 'Your platform experience matches this listing.',
+    partial: 'You have some platform experience related to this listing.',
+    missing: 'This listing expects experience or an account on this platform.',
+  },
+  completeness: {
+    label: 'Profile completeness',
+    matched: 'Your AI Trainers profile has the details this score uses.',
+    partial: 'Completing more of your profile may improve this match.',
+    missing: 'Add remaining profile details to improve this match.',
+  },
+};
+
+function factorStatus(value: number): MatchFactorStatus {
+  if (value >= 0.7) return 'matched';
+  if (value >= 0.4) return 'partial';
+  return 'missing';
+}
+
+function toFactor(key: keyof typeof WEIGHTS, value: number): MatchFactor {
+  const copy = FACTOR_COPY[key];
+  const status = factorStatus(value);
+  return {
+    key,
+    label: copy.label,
+    status,
+    description: copy[status],
+  };
+}
 
 function norm(value: string): string {
   return value.trim().toLowerCase();
@@ -229,11 +306,16 @@ export function scoreOpportunity(profile: MatchProfile, opportunity: MatchOpport
     reasons.unshift({ kind: 'hard', text: mismatch });
   }
 
+  const factors = parts.map((part) => toFactor(part.key, part.value));
+
   return {
     score,
     label: matchLabel(score),
     reasons: reasons.slice(0, 4),
     hardMismatches,
+    matchedFactors: factors.filter((item) => item.status === 'matched'),
+    partialFactors: factors.filter((item) => item.status === 'partial'),
+    missingFactors: factors.filter((item) => item.status === 'missing'),
   };
 }
 

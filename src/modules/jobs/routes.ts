@@ -24,7 +24,13 @@ export const jobRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get('/:slug', async (request) => {
     const params = jobSlugParams.parse(request.params);
-    const job = await getPublicJob(params.slug);
+    const session = await readSessionUser(request);
+    const profile = session
+      ? await prisma.profile.findUnique({ where: { userId: session.id } })
+      : null;
+    const job = await getPublicJob(params.slug, {
+      matchProfile: profile ? toMatchProfile(profile) : null,
+    });
     return { job };
   });
 };

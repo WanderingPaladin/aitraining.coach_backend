@@ -35,6 +35,7 @@ export const SERVER_EVENT_TYPES = [
   'platform_project_started',
   'platform_project_ended',
   'candidate_inactive',
+  'feedback_submitted',
 ] as const;
 
 export type PublicEventType = (typeof PUBLIC_EVENT_TYPES)[number];

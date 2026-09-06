@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isValidEmailAddress } from '../../lib/apply-fields.js';
+import { FEEDBACK_QUALITY_COPY, feedbackMessageIssue } from './quality.js';
 
 export const feedbackCategories = [
   'confusing',
@@ -9,7 +10,7 @@ export const feedbackCategories = [
   'question',
 ] as const;
 
-export const feedbackStatuses = ['new', 'reviewed', 'planned', 'resolved', 'archived'] as const;
+export const feedbackStatuses = ['new', 'reviewed', 'planned', 'resolved', 'archived', 'spam'] as const;
 
 export const feedbackDeviceTypes = ['desktop', 'tablet', 'mobile'] as const;
 
@@ -84,6 +85,9 @@ export const createFeedbackBody = z
     pagePath: z.string().trim().max(200).optional().default('/'),
     pageUrl: optionalBoundedString(500),
     email: optionalEmail,
+    visitorId: optionalBoundedString(80),
+    sessionId: optionalBoundedString(80),
+    companyWebsite: optionalBoundedString(200),
     metadata: z
       .object({
         browser: optionalBoundedString(80).optional(),
@@ -99,12 +103,22 @@ export const createFeedbackBody = z
       .default({}),
   })
   .superRefine((value, ctx) => {
-    const message = value.message.trim();
-    if (!message && value.rating == null) {
+    if (value.companyWebsite) {
+      return;
+    }
+    const issue = feedbackMessageIssue(value.message, value.rating != null);
+    if (issue === 'short') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['message'],
-        message: 'Share a short comment or a rating.',
+        message: FEEDBACK_QUALITY_COPY.short,
+      });
+    }
+    if (issue === 'low_quality') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['message'],
+        message: FEEDBACK_QUALITY_COPY.low_quality,
       });
     }
   });

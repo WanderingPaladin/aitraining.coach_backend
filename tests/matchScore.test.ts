@@ -68,6 +68,12 @@ describe('scoreOpportunity', () => {
     expect(match!.score).toBeGreaterThanOrEqual(80);
     expect(match!.label).toBe(matchLabel(match!.score));
     expect(match!.reasons.some((reason) => reason.kind === 'match')).toBe(true);
+    expect(match!.matchedFactors.length).toBeGreaterThan(0);
+    expect(
+      [...match!.matchedFactors, ...match!.partialFactors, ...match!.missingFactors].every(
+        (factor) => factor.label && factor.description && !factor.description.includes('+'),
+      ),
+    ).toBe(true);
   });
 
   it('renormalizes when an opportunity omits experience and skills', () => {

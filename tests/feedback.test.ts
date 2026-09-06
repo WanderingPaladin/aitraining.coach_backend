@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createFeedbackBody } from '../src/modules/feedback/schema.js';
+import { feedbackMessageIssue, isLowQualityFeedback } from '../src/modules/feedback/quality.js';
 import {
   inferDeviceType,
   parseBrowserName,
@@ -29,6 +30,25 @@ describe('createFeedbackBody', () => {
     expect(parsed.category).toBe('confusing');
     expect(parsed.subcategory).toBe('profile_match');
     expect(parsed.email).toBeNull();
+  });
+
+  it('rejects repeated-character messages', () => {
+    expect(() =>
+      createFeedbackBody.parse({
+        category: 'general',
+        message: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+        pagePath: '/',
+      }),
+    ).toThrow();
+  });
+
+  it('accepts a real comment about Profile Match', () => {
+    const parsed = createFeedbackBody.parse({
+      category: 'confusing',
+      message: "I don't understand what the Profile Match score means.",
+      pagePath: '/profile',
+    });
+    expect(parsed.message).toContain('Profile Match');
   });
 
   it('accepts rating-only feedback', () => {
@@ -91,5 +111,19 @@ describe('feedback sanitization', () => {
     expect(parseBrowserName('Mozilla/5.0 Chrome/120.0.0.0 Safari/537.36')).toBe('Chrome');
     expect(inferDeviceType('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)', null)).toBe('mobile');
     expect(inferDeviceType('Mozilla/5.0', 'tablet')).toBe('tablet');
+  });
+});
+
+describe('feedback quality', () => {
+  it('flags repeated characters and punctuation-only text', () => {
+    expect(isLowQualityFeedback('xxxxxxxxxxxxxxxxxxxxxxxxxxxxx')).toBe(true);
+    expect(isLowQualityFeedback('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')).toBe(true);
+    expect(isLowQualityFeedback('123123123123123123')).toBe(true);
+  });
+
+  it('allows ordinary comments', () => {
+    expect(isLowQualityFeedback("I don't understand what the Profile Match score means.")).toBe(false);
+    expect(feedbackMessageIssue('Great', true)).toBeNull();
+    expect(feedbackMessageIssue('Great', false)).toBe('short');
   });
 });

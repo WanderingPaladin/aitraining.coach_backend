@@ -8,11 +8,19 @@ export const feedbackRoutes: FastifyPluginAsync = async (fastify) => {
     '/feedback',
     {
       config: {
-        rateLimit: { max: 8, timeWindow: '1 minute' },
+        rateLimit: { max: 5, timeWindow: '10 minutes' },
       },
     },
     async (request, reply) => {
       const body = createFeedbackBody.parse(request.body);
+      if (body.companyWebsite) {
+        return reply.code(201).send({
+          feedback: {
+            id: 'discarded',
+            status: 'spam',
+          },
+        });
+      }
       const session = await readSessionUser(request);
       const feedback = await createFeedback(body, {
         userId: session?.id ?? null,

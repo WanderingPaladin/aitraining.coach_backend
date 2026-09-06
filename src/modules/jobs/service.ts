@@ -181,9 +181,12 @@ export function serializePublicJob(
   };
 }
 
-export function serializePublicJobDetail(job: PublicJobDetail) {
+export function serializePublicJobDetail(
+  job: PublicJobDetail,
+  extras?: { match?: ReturnType<typeof scoreOpportunity> },
+) {
   return {
-    ...serializePublicJob(job),
+    ...serializePublicJob(job, extras),
     descriptionHtml: job.descriptionHtml,
     descriptionText: job.descriptionText,
     expiresAt: job.expiresAt?.toISOString() ?? null,
@@ -351,7 +354,7 @@ export async function listPublicJobs(
   };
 }
 
-export async function getPublicJob(slug: string) {
+export async function getPublicJob(slug: string, extras?: { matchProfile?: MatchProfile | null }) {
   const job = await prisma.job.findFirst({
     where: { slug, ...publicWhere },
     select: publicJobDetailSelect,
@@ -359,7 +362,11 @@ export async function getPublicJob(slug: string) {
   if (!job) {
     throw notFound('JOB_NOT_FOUND', 'Opportunity not found');
   }
-  return serializePublicJobDetail(job);
+  const match =
+    extras?.matchProfile && canScoreMatch(extras.matchProfile)
+      ? scoreOpportunity(extras.matchProfile, jobToMatchOpportunity(job))
+      : null;
+  return serializePublicJobDetail(job, { match: match ?? undefined });
 }
 
 export async function listPublicJobSitemap() {

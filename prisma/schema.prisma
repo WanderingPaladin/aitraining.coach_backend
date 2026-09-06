@@ -226,6 +226,7 @@ model Application {
   activities             ApplicationActivity[]
   journeyEvents          CandidateEvent[]
   platformProgress       CandidateOpportunity[]
+  feedback               Feedback[]
 
   @@index([email])
   @@index([userId])
@@ -414,6 +415,7 @@ enum FeedbackStatus {
   planned
   resolved
   archived
+  spam
 }
 
 model Feedback {
@@ -433,6 +435,11 @@ model Feedback {
   screenHeight Int?
   referrer     String?
   userAgent    String?
+  visitorId    String?
+  visitor      Visitor?       @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  sessionId    String?
+  applicationId String?
+  application  Application?   @relation(fields: [applicationId], references: [id], onDelete: SetNull)
   status       FeedbackStatus @default(new)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
@@ -441,6 +448,8 @@ model Feedback {
   @@index([category, createdAt])
   @@index([pagePath])
   @@index([userId])
+  @@index([visitorId])
+  @@index([applicationId])
   @@index([createdAt])
 }
 
@@ -513,6 +522,7 @@ model Visitor {
   sessions        VisitorSession[]
   events          CandidateEvent[]
   applications    Application[]
+  feedback        Feedback[]
 
   @@index([userId])
   @@index([firstSeenAt])
