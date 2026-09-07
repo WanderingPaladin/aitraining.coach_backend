@@ -16,6 +16,8 @@ process.on('SIGTERM', () => void shutdown('SIGTERM'));
 
 try {
   await app.listen({ port: config.PORT, host: config.HOST });
+  const { attachChatRealtime } = await import('./modules/chat/realtime.js');
+  attachChatRealtime(app);
   const { startJobSyncScheduler } = await import('./modules/job-collector/scheduler.js');
   startJobSyncScheduler(app.log);
 } catch (error) {

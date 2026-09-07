@@ -87,6 +87,7 @@ model User {
   feedback             Feedback[]
   visitors             Visitor[]
   journeyEvents        CandidateEvent[]
+  chatConversations    ChatConversation[]
 }
 
 model UserSession {
@@ -227,6 +228,7 @@ model Application {
   journeyEvents          CandidateEvent[]
   platformProgress       CandidateOpportunity[]
   feedback               Feedback[]
+  chatConversations      ChatConversation[]
 
   @@index([email])
   @@index([userId])
@@ -418,31 +420,111 @@ enum FeedbackStatus {
   spam
 }
 
+enum ChatStatus {
+  open
+  waiting_for_team
+  waiting_for_user
+  resolved
+  closed
+}
+
+enum ChatSenderType {
+  visitor
+  candidate
+  team
+  system
+}
+
+enum ChatMessageType {
+  text
+  feedback
+}
+
+model ChatConversation {
+  id                   String        @id @default(cuid())
+  status               ChatStatus    @default(open)
+  topic                String?
+  topicLabel           String?
+  visitorId            String?
+  visitor              Visitor?      @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  sessionId            String?
+  userId               String?
+  user                 User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  applicationId        String?
+  application          Application?  @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  assignedTo           String?
+  startedFromPage      String?
+  startedFromUrl       String?
+  firstSource          String?
+  firstUtmSource       String?
+  firstUtmCampaign     String?
+  currentFunnelStage   String?
+  contextType          String?
+  opportunityId        String?
+  opportunityTitle     String?
+  opportunityPlatform  String?
+  contactEmail         String?
+  displayName          String        @default("Anonymous visitor")
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  lastMessageAt        DateTime      @default(now())
+  closedAt             DateTime?
+  messages             ChatMessage[]
+  feedback             Feedback[]
+
+  @@index([visitorId, lastMessageAt])
+  @@index([userId, lastMessageAt])
+  @@index([applicationId])
+  @@index([status, lastMessageAt])
+  @@index([lastMessageAt])
+}
+
+model ChatMessage {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderType     ChatSenderType
+  senderLabel    String           @default("")
+  body           String           @default("")
+  messageType    ChatMessageType  @default(text)
+  feedbackId     String?
+  feedback       Feedback?        @relation(fields: [feedbackId], references: [id], onDelete: SetNull)
+  createdAt      DateTime         @default(now())
+  readAt         DateTime?
+
+  @@index([conversationId, createdAt])
+  @@index([feedbackId])
+  @@index([senderType, readAt])
+}
+
 model Feedback {
-  id           String         @id @default(cuid())
-  category     String
-  subcategory  String?
-  message      String         @default("")
-  rating       Int?
-  pagePath     String
-  pageUrl      String         @default("")
-  userId       String?
-  user         User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
-  email        String?
-  browser      String?
-  deviceType   String?
-  screenWidth  Int?
-  screenHeight Int?
-  referrer     String?
-  userAgent    String?
-  visitorId    String?
-  visitor      Visitor?       @relation(fields: [visitorId], references: [id], onDelete: SetNull)
-  sessionId    String?
-  applicationId String?
-  application  Application?   @relation(fields: [applicationId], references: [id], onDelete: SetNull)
-  status       FeedbackStatus @default(new)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id              String            @id @default(cuid())
+  category        String
+  subcategory     String?
+  message         String            @default("")
+  rating          Int?
+  pagePath        String
+  pageUrl         String            @default("")
+  userId          String?
+  user            User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email           String?
+  browser         String?
+  deviceType      String?
+  screenWidth     Int?
+  screenHeight    Int?
+  referrer        String?
+  userAgent       String?
+  visitorId       String?
+  visitor         Visitor?          @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  sessionId       String?
+  applicationId   String?
+  application     Application?      @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  conversationId  String?
+  conversation    ChatConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  status          FeedbackStatus    @default(new)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  chatMessages    ChatMessage[]
 
   @@index([status, createdAt])
   @@index([category, createdAt])
@@ -450,6 +532,7 @@ model Feedback {
   @@index([userId])
   @@index([visitorId])
   @@index([applicationId])
+  @@index([conversationId])
   @@index([createdAt])
 }
 
@@ -523,6 +606,7 @@ model Visitor {
   events          CandidateEvent[]
   applications    Application[]
   feedback        Feedback[]
+  chatConversations ChatConversation[]
 
   @@index([userId])
   @@index([firstSeenAt])

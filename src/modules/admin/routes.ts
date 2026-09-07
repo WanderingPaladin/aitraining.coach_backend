@@ -35,6 +35,7 @@ import {
 import { bookingIdParams, listBookingsQuery } from '../bookings/schema.js';
 import { cancelBooking, listBookings, serializeBooking } from '../bookings/service.js';
 import { feedbackAdminRoutes } from '../feedback/admin-routes.js';
+import { chatAdminRoutes } from '../chat/admin-routes.js';
 import { trackingAdminRoutes } from '../tracking/admin-routes.js';
 import { jobAdminRoutes } from '../jobs/admin-routes.js';
 import {
@@ -234,5 +235,6 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
   await fastify.register(jobAdminRoutes);
   await fastify.register(feedbackAdminRoutes);
+  await fastify.register(chatAdminRoutes);
   await fastify.register(trackingAdminRoutes);
 };
