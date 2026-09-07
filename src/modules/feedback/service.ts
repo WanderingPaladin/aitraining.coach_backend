@@ -24,6 +24,18 @@ export {
 const feedbackInclude = {
   visitor: { select: { id: true, firstSource: true } },
   application: { select: { id: true, journeyStage: true, firstName: true, lastName: true } },
+  conversation: {
+    select: {
+      id: true,
+      status: true,
+      messages: {
+        where: { senderType: 'team' },
+        orderBy: { createdAt: 'desc' as const },
+        take: 1,
+        select: { createdAt: true },
+      },
+    },
+  },
 } satisfies Prisma.FeedbackInclude;
 
 type FeedbackRecord = Prisma.FeedbackGetPayload<{ include: typeof feedbackInclude }>;
@@ -39,7 +51,7 @@ function journeyContextLabel(stage: JourneyStage | null | undefined): string | n
   return null;
 }
 
-function areaLabel(pagePath: string, category: string, subcategory: string | null): string {
+export function areaLabel(pagePath: string, category: string, subcategory: string | null): string {
   const path = pagePath.toLowerCase();
   if (path.startsWith('/profile') || subcategory === 'profile_match' || subcategory === 'profile') {
     return 'Profile / Match';
@@ -83,6 +95,12 @@ export function serializeFeedback(feedback: Feedback | FeedbackRecord) {
     candidateName: record.application
       ? [record.application.firstName, record.application.lastName].filter(Boolean).join(' ')
       : null,
+    conversationId: feedback.conversationId,
+    conversationStatus: record.conversation?.status ?? null,
+    lastTeamReplyAt: record.conversation?.messages?.[0]?.createdAt.toISOString() ?? null,
+    canReply: Boolean(
+      feedback.conversationId || feedback.visitorId || feedback.userId,
+    ) && feedback.status !== 'spam' && feedback.status !== 'archived',
     status: feedback.status,
     createdAt: feedback.createdAt.toISOString(),
     updatedAt: feedback.updatedAt.toISOString(),
@@ -171,7 +189,21 @@ export async function createFeedback(
     },
   });
 
-  return feedback;
+  try {
+    const { attachFeedbackToConversation } = await import('../chat/service.js');
+    const attached = await attachFeedbackToConversation(feedback);
+    const { emitChatEvent } = await import('../chat/realtime.js');
+    emitChatEvent(attached.conversation.id, 'message:new', attached);
+    emitChatEvent('team', 'inbox:update', { conversation: attached.conversation });
+    const linked = await prisma.feedback.findUniqueOrThrow({
+      where: { id: feedback.id },
+      include: feedbackInclude,
+    });
+    return linked;
+  } catch (error) {
+    console.error('[feedback] could not attach conversation', error);
+    return feedback;
+  }
 }
 
 export async function listFeedback(query: ListFeedbackQuery) {
@@ -253,6 +285,17 @@ export async function getFeedbackSummary() {
       label: areaLabel(row.pagePath, row.category, row.subcategory),
     })),
   };
+}
+
+export async function getFeedback(id: string) {
+  const feedback = await prisma.feedback.findUnique({
+    where: { id },
+    include: feedbackInclude,
+  });
+  if (!feedback) {
+    throw notFound('FEEDBACK_NOT_FOUND', 'Feedback not found');
+  }
+  return feedback;
 }
 
 export async function updateFeedbackStatus(id: string, status: Feedback['status']) {
