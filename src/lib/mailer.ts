@@ -107,6 +107,12 @@ async function sendCoachSafely(
   });
 }
 
+export async function notifyCoach(
+  message: { subject: string; text: string; html: string; replyTo?: string },
+): Promise<void> {
+  await sendCoachSafely(message);
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')

@@ -14,6 +14,7 @@ export const PUBLIC_EVENT_TYPES = [
   'opportunity_viewed',
   'opportunity_saved',
   'opportunity_external_clicked',
+  'chat_opened',
 ] as const;
 
 export const SERVER_EVENT_TYPES = [
@@ -36,6 +37,10 @@ export const SERVER_EVENT_TYPES = [
   'platform_project_ended',
   'candidate_inactive',
   'feedback_submitted',
+  'chat_started',
+  'team_reply_received',
+  'team_replied_to_feedback',
+  'chat_resolved',
 ] as const;
 
 export type PublicEventType = (typeof PUBLIC_EVENT_TYPES)[number];

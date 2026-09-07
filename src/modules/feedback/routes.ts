@@ -22,11 +22,15 @@ export const feedbackRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
       const session = await readSessionUser(request);
-      const feedback = await createFeedback(body, {
+      const result = await createFeedback(body, {
         userId: session?.id ?? null,
         userAgent: typeof request.headers['user-agent'] === 'string' ? request.headers['user-agent'] : null,
       });
-      return reply.code(201).send({ feedback: serializeFeedback(feedback) });
+      return reply.code(201).send({
+        feedback: serializeFeedback(result.feedback),
+        conversation: result.conversation,
+        message: result.message,
+      });
     },
   );
 };

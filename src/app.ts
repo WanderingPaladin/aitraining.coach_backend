@@ -14,6 +14,7 @@ import { bookingRoutes } from './modules/bookings/routes.js';
 import { internalJobRoutes } from './modules/jobs/internal-routes.js';
 import { jobRoutes } from './modules/jobs/routes.js';
 import { feedbackRoutes } from './modules/feedback/routes.js';
+import { chatRoutes } from './modules/chat/routes.js';
 import { opportunityRoutes } from './modules/opportunities/routes.js';
 import { trackingRoutes } from './modules/tracking/routes.js';
 
@@ -59,6 +60,7 @@ export async function buildApp() {
   await app.register(applicationRoutes, { prefix: '/v1' });
   await app.register(trackingRoutes, { prefix: '/v1' });
   await app.register(feedbackRoutes, { prefix: '/v1' });
+  await app.register(chatRoutes, { prefix: '/v1' });
   await app.register(slotRoutes, { prefix: '/v1' });
   await app.register(bookingRoutes, { prefix: '/v1' });
   await app.register(authRoutes, { prefix: '/v1/auth' });

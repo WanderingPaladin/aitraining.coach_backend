@@ -141,6 +141,14 @@ export async function attachVisitorToApplication(
     });
   }
 
+  await db.chatConversation.updateMany({
+    where: { visitorId: visitor.id, applicationId: null },
+    data: {
+      applicationId,
+      ...(application.userId ? { userId: application.userId } : {}),
+    },
+  });
+
   await db.candidateEvent.updateMany({
     where: { visitorId: visitor.id, applicationId: null },
     data: { applicationId },
@@ -153,6 +161,10 @@ export async function linkVisitorToUser(userId: string, visitorId?: string | nul
       where: { id: visitorId, userId: null },
       data: { userId },
     });
+    await prisma.chatConversation.updateMany({
+      where: { visitorId, userId: null },
+      data: { userId },
+    });
   }
   const applications = await prisma.application.findMany({
     where: { userId },
@@ -162,6 +174,10 @@ export async function linkVisitorToUser(userId: string, visitorId?: string | nul
   if (visitorIds.length > 0) {
     await prisma.visitor.updateMany({
       where: { id: { in: visitorIds }, userId: null },
+      data: { userId },
+    });
+    await prisma.chatConversation.updateMany({
+      where: { visitorId: { in: visitorIds }, userId: null },
       data: { userId },
     });
     await prisma.candidateEvent.updateMany({

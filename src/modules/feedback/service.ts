@@ -3,6 +3,11 @@ import { prisma } from '../../db/prisma.js';
 import { notFound } from '../../lib/errors.js';
 import { recordEvent } from '../tracking/events.js';
 import { isUuid } from '../tracking/sanitize.js';
+import { attachFeedbackToConversation } from '../chat/service.js';
+import {
+  feedbackCategoryLabel,
+  feedbackSubcategoryLabel,
+} from './labels.js';
 import type { CreateFeedbackBody, ListFeedbackQuery } from './schema.js';
 import {
   inferDeviceType,
@@ -24,6 +29,21 @@ export {
 const feedbackInclude = {
   visitor: { select: { id: true, firstSource: true } },
   application: { select: { id: true, journeyStage: true, firstName: true, lastName: true } },
+  conversation: {
+    select: {
+      id: true,
+      status: true,
+      lastMessageAt: true,
+      visitorId: true,
+      userId: true,
+      messages: {
+        where: { senderType: 'team' },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { id: true, body: true, createdAt: true, readAt: true },
+      },
+    },
+  },
 } satisfies Prisma.FeedbackInclude;
 
 type FeedbackRecord = Prisma.FeedbackGetPayload<{ include: typeof feedbackInclude }>;
@@ -59,10 +79,16 @@ function areaLabel(pagePath: string, category: string, subcategory: string | nul
 
 export function serializeFeedback(feedback: Feedback | FeedbackRecord) {
   const record = feedback as FeedbackRecord;
+  const conversation = record.conversation ?? null;
+  const lastTeamReply = conversation?.messages[0] ?? null;
+  const canReplyStatuses = feedback.status !== 'spam' && feedback.status !== 'archived';
+  const hasIdentity = Boolean(feedback.userId || feedback.visitorId || conversation?.id);
   return {
     id: feedback.id,
     category: feedback.category,
+    categoryLabel: feedbackCategoryLabel(feedback.category),
     subcategory: feedback.subcategory,
+    subcategoryLabel: feedbackSubcategoryLabel(feedback.subcategory),
     message: feedback.message,
     rating: feedback.rating,
     pagePath: feedback.pagePath,
@@ -77,12 +103,24 @@ export function serializeFeedback(feedback: Feedback | FeedbackRecord) {
     visitorId: feedback.visitorId,
     sessionId: feedback.sessionId,
     applicationId: feedback.applicationId,
+    conversationId: feedback.conversationId ?? conversation?.id ?? null,
+    conversationStatus: conversation?.status ?? null,
+    lastTeamReplyAt: lastTeamReply?.createdAt.toISOString() ?? null,
+    lastTeamReplyPreview: lastTeamReply?.body ?? null,
+    unreadForVisitor: lastTeamReply ? lastTeamReply.readAt == null : false,
     firstSource: record.visitor?.firstSource ?? null,
     journeyStage: record.application?.journeyStage ?? null,
     journeyLabel: journeyContextLabel(record.application?.journeyStage),
     candidateName: record.application
       ? [record.application.firstName, record.application.lastName].filter(Boolean).join(' ')
       : null,
+    replyAvailable: canReplyStatuses && hasIdentity,
+    replyUnavailableReason:
+      !canReplyStatuses
+        ? 'This feedback is not available for reply.'
+        : !hasIdentity
+          ? 'Conversation unavailable for this older anonymous feedback.'
+          : null,
     status: feedback.status,
     createdAt: feedback.createdAt.toISOString(),
     updatedAt: feedback.updatedAt.toISOString(),
@@ -166,12 +204,33 @@ export async function createFeedback(
     metadata: {
       feedback_id: feedback.id,
       category: feedback.category,
+      subcategory: feedback.subcategory,
       page_path: feedback.pagePath,
       ...(feedback.rating != null ? { rating: feedback.rating } : {}),
     },
   });
 
-  return feedback;
+  const attached = await attachFeedbackToConversation({
+    id: feedback.id,
+    category: feedback.category,
+    subcategory: feedback.subcategory,
+    message: feedback.message,
+    rating: feedback.rating,
+    pagePath: feedback.pagePath,
+    createdAt: feedback.createdAt,
+    visitorId: links.visitorId ?? input.visitorId,
+    sessionId: links.sessionId,
+    userId: extras.userId ?? null,
+    applicationId: links.applicationId,
+    email: input.email,
+  });
+
+  const refreshed = await prisma.feedback.findUniqueOrThrow({
+    where: { id: feedback.id },
+    include: feedbackInclude,
+  });
+
+  return { feedback: refreshed, conversation: attached.conversation, message: attached.message };
 }
 
 export async function listFeedback(query: ListFeedbackQuery) {

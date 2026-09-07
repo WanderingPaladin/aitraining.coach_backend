@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { feedbackIdParams, listFeedbackQuery, patchFeedbackBody } from './schema.js';
 import { listFeedback, getFeedbackSummary, serializeFeedback, updateFeedbackStatus } from './service.js';
+import { ensureConversationForFeedback } from '../chat/service.js';
 
 export const feedbackAdminRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/feedback/summary', async () => getFeedbackSummary());
@@ -19,5 +20,10 @@ export const feedbackAdminRoutes: FastifyPluginAsync = async (fastify) => {
     const body = patchFeedbackBody.parse(request.body);
     const feedback = await updateFeedbackStatus(params.id, body.status);
     return { feedback: serializeFeedback(feedback) };
+  });
+
+  fastify.post('/feedback/:id/conversation', async (request) => {
+    const params = feedbackIdParams.parse(request.params);
+    return ensureConversationForFeedback(params.id);
   });
 };
