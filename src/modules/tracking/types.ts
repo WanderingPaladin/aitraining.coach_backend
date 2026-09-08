@@ -15,6 +15,18 @@ export const PUBLIC_EVENT_TYPES = [
   'opportunity_saved',
   'opportunity_external_clicked',
   'chat_opened',
+  'course_viewed',
+  'course_started',
+  'module_started',
+  'module_completed',
+  'assessment_started',
+  'assessment_submitted',
+  'assessment_passed',
+  'assessment_failed',
+  'certificate_generated',
+  'certificate_downloaded',
+  'opportunities_clicked_from_course',
+  'coaching_clicked_from_results',
 ] as const;
 
 export const SERVER_EVENT_TYPES = [

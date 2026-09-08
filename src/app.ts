@@ -17,6 +17,7 @@ import { feedbackRoutes } from './modules/feedback/routes.js';
 import { chatRoutes } from './modules/chat/routes.js';
 import { opportunityRoutes } from './modules/opportunities/routes.js';
 import { trackingRoutes } from './modules/tracking/routes.js';
+import { learnRoutes } from './modules/learn/routes.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -59,6 +60,7 @@ export async function buildApp() {
 
   await app.register(applicationRoutes, { prefix: '/v1' });
   await app.register(trackingRoutes, { prefix: '/v1' });
+  await app.register(learnRoutes, { prefix: '/v1' });
   await app.register(feedbackRoutes, { prefix: '/v1' });
   await app.register(chatRoutes, { prefix: '/v1' });
   await app.register(slotRoutes, { prefix: '/v1' });

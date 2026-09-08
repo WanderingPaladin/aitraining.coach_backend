@@ -88,6 +88,9 @@ model User {
   visitors             Visitor[]
   journeyEvents        CandidateEvent[]
   chatConversations    ChatConversation[]
+  courseProgress       CourseProgress[]
+  assessmentAttempts   AssessmentAttempt[]
+  courseCertificates   CourseCertificate[]
 }
 
 model UserSession {
@@ -530,6 +533,9 @@ model Visitor {
   applications    Application[]
   feedback        Feedback[]
   chatConversations ChatConversation[]
+  courseProgress    CourseProgress[]
+  assessmentAttempts AssessmentAttempt[]
+  courseCertificates CourseCertificate[]
 
   @@index([userId])
   @@index([firstSeenAt])
@@ -682,4 +688,71 @@ model ChatMessage {
   @@index([conversationId, createdAt])
   @@index([conversationId, readAt])
   @@index([feedbackId])
+}
+
+model CourseProgress {
+  id               String    @id @default(cuid())
+  userId           String?
+  user             User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  visitorId        String?
+  visitor          Visitor?  @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  courseSlug       String
+  currentModule    Int       @default(1)
+  completedModules Int[]     @default([])
+  startedModules   Int[]     @default([])
+  quizResults      Json?
+  lastLesson       String?
+  startedAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  completedAt      DateTime?
+
+  @@index([userId, courseSlug])
+  @@index([visitorId, courseSlug])
+}
+
+model AssessmentAttempt {
+  id             String              @id @default(cuid())
+  userId         String?
+  user           User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  visitorId      String?
+  visitor        Visitor?            @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  courseSlug     String
+  answers        Json                @default("{}")
+  submitted      Boolean             @default(false)
+  categoryScores Json?
+  finalScore     Int?
+  passed         Boolean             @default(false)
+  firstName      String?
+  email          String?
+  usBased        Boolean?
+  situation      String?
+  state          String?
+  shareScore     Boolean             @default(false)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  submittedAt    DateTime?
+  certificate    CourseCertificate?
+
+  @@index([userId, courseSlug, submitted])
+  @@index([visitorId, courseSlug, submitted])
+}
+
+model CourseCertificate {
+  id                 String            @id @default(cuid())
+  credentialId       String            @unique
+  attemptId          String            @unique
+  attempt            AssessmentAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  userId             String?
+  user               User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  visitorId          String?
+  visitor            Visitor?          @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  courseSlug         String
+  learnerDisplayName String
+  learnerLastInitial String            @default("")
+  score              Int
+  shareScore         Boolean           @default(false)
+  issuedAt           DateTime          @default(now())
+  status             String            @default("valid")
+
+  @@index([credentialId])
 }
