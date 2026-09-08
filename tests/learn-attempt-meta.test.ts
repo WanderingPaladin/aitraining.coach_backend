@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { encodeQuestionSet, mergeAnswers, publicAnswers, readQuestionSet } from '../src/modules/learn/attempt-meta.js';
+import { encodeCurrentIndex, encodeQuestionSet, mergeAnswers, publicAnswers, readCurrentIndex, readQuestionSet } from '../src/modules/learn/attempt-meta.js';
 import { startAttemptBody } from '../src/modules/learn/schema.js';
 import { serializeError } from '../src/lib/http.js';
 import { Prisma } from '@prisma/client';
@@ -16,6 +16,20 @@ describe('assessment question-set persistence', () => {
     const merged = mergeAnswers(encodeQuestionSet(['q1', 'q2']), { q1: 'B' }, ['q1', 'q2']);
     expect(readQuestionSet(merged)).toEqual(['q1', 'q2']);
     expect(publicAnswers(merged)).toEqual({ q1: 'B' });
+  });
+
+  it('persists and restores the current question index without exposing it as an answer', () => {
+    const merged = mergeAnswers(encodeQuestionSet(['q1', 'q2']), { q1: 'A' }, ['q1', 'q2'], 3);
+    expect(readCurrentIndex(merged)).toBe(3);
+    expect(publicAnswers(merged)).toEqual({ q1: 'A' });
+    expect(publicAnswers({ ...merged, ...encodeCurrentIndex(4) })).toEqual({ q1: 'A' });
+  });
+
+  it('keeps the previous index when a later save omits it', () => {
+    const first = mergeAnswers(encodeQuestionSet(['q1', 'q2']), { q1: 'A' }, ['q1', 'q2'], 2);
+    const second = mergeAnswers(first, { q2: 'B' }, ['q1', 'q2']);
+    expect(readCurrentIndex(second)).toBe(2);
+    expect(publicAnswers(second)).toEqual({ q1: 'A', q2: 'B' });
   });
 
   it('accepts retake on start without requiring an attempt id', () => {

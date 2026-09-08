@@ -20,6 +20,7 @@ export const progressBody = z.object({
   startedModules: z.array(z.number().int().min(1).max(8)).max(8).optional(),
   quizResults: z.record(z.union([z.boolean(), z.number(), z.string()])).optional(),
   lastLesson: z.string().trim().max(80).optional(),
+  completedLabs: z.array(z.string().trim().min(1).max(80)).max(24).optional(),
   completedAt: z.boolean().optional(),
 });
 
@@ -38,6 +39,7 @@ export const startAttemptBody = z.object({
 export const saveAnswersBody = z.object({
   visitorId: optionalUuid,
   answers: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).default({}),
+  currentIndex: z.number().int().min(0).max(100).optional(),
 });
 
 export const submitAttemptBody = z.object({
