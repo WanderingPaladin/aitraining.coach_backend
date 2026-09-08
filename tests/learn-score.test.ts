@@ -6,7 +6,8 @@ import {
   questionsForIds,
   selectAttemptQuestionIds,
 } from '../src/modules/learn/questions.js';
-import { levelForScore, scoreAttempt } from '../src/modules/learn/score.js';
+import { encodeQuestionSet } from '../src/modules/learn/attempt-meta.js';
+import { levelForScore, resolveScoringQuestionIds, scoreAttempt } from '../src/modules/learn/score.js';
 import { newCredentialId } from '../src/modules/learn/pdf.js';
 
 describe('foundations assessment v2', () => {
@@ -53,6 +54,31 @@ describe('foundations assessment v2', () => {
     expect(result.finalScore).toBe(0);
     expect(result.passed).toBe(false);
     expect(levelForScore(result.finalScore)).toBe('foundation');
+  });
+
+  it('scores the questions the learner actually answered, not a different locked set', () => {
+    const shown = ASSESSMENT_QUESTIONS.filter((item) => item.id.startsWith('q')).slice(0, 24).map((item) => item.id);
+    const other = ASSESSMENT_QUESTIONS.filter((item) => item.id.startsWith('q')).slice(24, 48).map((item) => item.id);
+    const answers: Record<string, string> = {};
+    for (const id of shown) {
+      const question = ASSESSMENT_QUESTIONS.find((item) => item.id === id);
+      if (!question) continue;
+      if (question.type === 'written') {
+        answers[id] = 'Response A is stronger because it satisfies both requested categories while B omits disadvantages.';
+      } else {
+        answers[id] = question.correct ?? '';
+      }
+    }
+    const resolved = resolveScoringQuestionIds(encodeQuestionSet(other), answers);
+    expect(resolved).toEqual(shown);
+    expect(scoreAttempt(answers, other).finalScore).toBe(0);
+    expect(scoreAttempt(answers, resolved).finalScore).toBeGreaterThan(0);
+  });
+
+  it('does not reshuffle a locked set while the learner is still answering it', () => {
+    const locked = selectAttemptQuestionIds();
+    const answers = { [locked[0]!]: 'A' };
+    expect(resolveScoringQuestionIds(encodeQuestionSet(locked), answers)).toEqual(locked);
   });
 
   it('generates non-sequential credential ids', () => {

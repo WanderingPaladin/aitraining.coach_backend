@@ -4,6 +4,7 @@ import {
   SCORE_WEIGHTS,
   type ScoreCategory,
 } from './questions.js';
+import { publicAnswers, readQuestionSet } from './attempt-meta.js';
 
 export type ScoreLevel = 'excellent' | 'ready' | 'developing' | 'foundation';
 
@@ -44,6 +45,36 @@ function itemScore(questionId: string, raw: unknown): number {
   return value && value === question.correct ? 1 : 0;
 }
 
+function knownQuestionId(id: string) {
+  return ASSESSMENT_QUESTIONS.some((item) => item.id === id);
+}
+
+function uniqueIds(ids: string[]) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of ids) {
+    if (!knownQuestionId(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+export function resolveScoringQuestionIds(existing: unknown, incoming?: Record<string, string>): string[] {
+  const stored = uniqueIds(readQuestionSet(existing));
+  const answered = uniqueIds([...Object.keys(publicAnswers(existing)), ...Object.keys(incoming ?? {})]);
+  if (stored.length && answered.length) {
+    const answeredSet = new Set(answered);
+    const overlap = stored.filter((id) => answeredSet.has(id)).length;
+    if (stored.length >= 8 && answered.length >= 8 && overlap / Math.min(stored.length, answered.length) < 0.6) {
+      return answered;
+    }
+    return uniqueIds([...stored, ...answered]);
+  }
+  if (stored.length) return stored;
+  return answered;
+}
+
 export function scoreAttempt(
   answers: Record<string, unknown>,
   questionIds?: string[],
@@ -53,9 +84,10 @@ export function scoreAttempt(
   categoryScores: Record<ScoreCategory, number>;
   perQuestion: Array<{ id: string; correct: boolean; explanation: string; score: number }>;
 } {
-  const selected = questionIds?.length
-    ? ASSESSMENT_QUESTIONS.filter((item) => questionIds.includes(item.id))
-    : ASSESSMENT_QUESTIONS.filter((item) => item.id.startsWith('q'));
+  const answeredIds = uniqueIds(Object.keys(answers));
+  const requested = uniqueIds(questionIds ?? []);
+  const selectedIds = requested.length ? requested : answeredIds;
+  const selected = ASSESSMENT_QUESTIONS.filter((item) => selectedIds.includes(item.id));
   const grouped: Record<ScoreCategory, number[]> = {
     instruction_following: [],
     response_evaluation: [],

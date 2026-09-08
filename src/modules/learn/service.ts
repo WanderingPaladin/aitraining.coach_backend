@@ -5,7 +5,7 @@ import { isAssessmentStorageError } from '../../lib/http.js';
 import { badRequest, conflict, forbidden, notFound } from '../../lib/errors.js';
 import { isUuid } from '../tracking/sanitize.js';
 import { COURSE_SLUG, PASS_SCORE, questionsForIds, selectAttemptQuestionIds } from './questions.js';
-import { encodeQuestionSet, mergeAnswers, publicAnswers, readCurrentIndex, readQuestionSet } from './attempt-meta.js';
+import { encodeQuestionSet, mergeAnswers, publicAnswers, readCurrentIndex } from './attempt-meta.js';
 import {
   bandForCategory,
   categoryLabel,
@@ -13,6 +13,7 @@ import {
   levelForScore,
   LEVEL_COPY,
   recommendationsFor,
+  resolveScoringQuestionIds,
   sanitizeWritten,
   scoreAttempt,
   type ScoreLevel,
@@ -281,17 +282,9 @@ async function findAttempt(id: string, identity: Identity) {
 }
 
 function questionsForAttempt(attempt: { answers: Prisma.JsonValue }) {
-  const stored = readQuestionSet(attempt.answers);
-  if (stored.length) return questionsForIds(stored);
-  const answered = Object.keys(publicAnswers(attempt.answers));
-  if (answered.length) return questionsForIds(answered);
-  return questionsForIds(selectAttemptQuestionIds());
-}
-
-function questionIdsFor(attempt: { answers: Prisma.JsonValue }) {
-  const stored = readQuestionSet(attempt.answers);
-  if (stored.length) return stored;
-  return questionsForAttempt(attempt).map((item) => item.id);
+  const ids = resolveScoringQuestionIds(attempt.answers);
+  if (ids.length) return questionsForIds(ids);
+  return [];
 }
 
 function allowedAttempt(
@@ -397,8 +390,9 @@ export async function saveAnswers(id: string, identity: Identity, body: SaveAnsw
   if (attempt.submitted) {
     throw conflict('ALREADY_SUBMITTED', 'Your assessment has already been submitted.');
   }
-  const questionIds = questionIdsFor(attempt);
-  const merged = mergeAnswers(attempt.answers, normalizeAnswers(body.answers), questionIds, body.currentIndex);
+  const incoming = normalizeAnswers(body.answers);
+  const questionIds = resolveScoringQuestionIds(attempt.answers, incoming);
+  const merged = mergeAnswers(attempt.answers, incoming, questionIds, body.currentIndex);
   const updated = await prisma.assessmentAttempt.update({
     where: { id: attempt.id },
     data: { answers: merged as Prisma.InputJsonValue, visitorId: identity.visitorId ?? attempt.visitorId },
@@ -441,10 +435,11 @@ export async function submitAttempt(id: string, identity: Identity, body: Submit
   const attempt = await findAttempt(id, identity);
   if (attempt.submitted && attempt.finalScore != null) {
     learnLog('submit', { attemptId: attempt.id, submitted: true, replay: true });
-    return serializeResult(attempt);
+    return serializeResult(await repairAttemptScore(attempt));
   }
-  const questionIds = questionIdsFor(attempt);
-  const answers = mergeAnswers(attempt.answers, normalizeAnswers(body.answers), questionIds);
+  const incoming = normalizeAnswers(body.answers);
+  const questionIds = resolveScoringQuestionIds(attempt.answers, incoming);
+  const answers = mergeAnswers(attempt.answers, incoming, questionIds);
   const scored = scoreAttempt(publicAnswers(answers), questionIds);
   const name = displayName(body.firstName, body.lastName);
   let credentialId: string | null = null;
@@ -498,6 +493,8 @@ export async function submitAttempt(id: string, identity: Identity, body: Submit
     attemptId: updated.id,
     submitted: true,
     passed: updated.passed,
+    finalScore: updated.finalScore,
+    answerCount: Object.keys(publicAnswers(updated.answers)).length,
     hasCertificate: Boolean(updated.certificate),
   });
   return serializeResult(updated);
@@ -542,6 +539,58 @@ export async function retryCertificate(id: string, identity: Identity) {
   });
   learnLog('certificate', { attemptId: next.id, hasCertificate: Boolean(next.certificate) });
   return serializeResult(next);
+}
+
+type StoredAttempt = Awaited<ReturnType<typeof findAttempt>>;
+
+async function repairAttemptScore(attempt: StoredAttempt): Promise<StoredAttempt> {
+  if (!attempt.submitted || attempt.finalScore == null) return attempt;
+  const answered = publicAnswers(attempt.answers);
+  if (Object.keys(answered).length < 3) return attempt;
+  const questionIds = resolveScoringQuestionIds(attempt.answers, answered);
+  const scored = scoreAttempt(answered, questionIds);
+  if (scored.finalScore <= attempt.finalScore) return attempt;
+  learnLog('score-repair', {
+    attemptId: attempt.id,
+    from: attempt.finalScore,
+    to: scored.finalScore,
+    answered: Object.keys(answered).length,
+    questionCount: questionIds.length,
+  });
+  const updated = await prisma.assessmentAttempt.update({
+    where: { id: attempt.id },
+    data: {
+      finalScore: scored.finalScore,
+      passed: scored.passed,
+      categoryScores: scored.categoryScores as Prisma.InputJsonValue,
+    },
+    select: ATTEMPT_WITH_CERT_SELECT,
+  });
+  if (!scored.passed || updated.certificate) return updated;
+  const name = (attempt.firstName ?? 'Learner').trim() || 'Learner';
+  for (let i = 0; i < 6; i += 1) {
+    try {
+      await prisma.courseCertificate.create({
+        data: {
+          credentialId: newCredentialId(),
+          attemptId: updated.id,
+          userId: updated.userId,
+          visitorId: updated.visitorId,
+          courseSlug: updated.courseSlug,
+          learnerDisplayName: name,
+          score: scored.finalScore,
+          shareScore: updated.shareScore,
+        },
+      });
+      break;
+    } catch {
+      // unique credential collision; retry
+    }
+  }
+  return prisma.assessmentAttempt.findUniqueOrThrow({
+    where: { id: updated.id },
+    select: ATTEMPT_WITH_CERT_SELECT,
+  });
 }
 
 function categoryView(scores: Record<string, number> | null) {
@@ -614,7 +663,7 @@ export async function getAttemptResult(id: string, identity: Identity) {
       currentIndex: readCurrentIndex(attempt.answers),
     };
   }
-  return serializeResult(attempt);
+  return serializeResult(await repairAttemptScore(attempt));
 }
 
 export async function getPublicCertificate(credentialId: string) {
