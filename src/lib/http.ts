@@ -51,6 +51,18 @@ export function serializeError(error: unknown): {
     };
   }
 
+  if (error instanceof Prisma.PrismaClientKnownRequestError && (error.code === 'P2022' || error.code === 'P2021')) {
+    return {
+      statusCode: 503,
+      body: {
+        error: {
+          code: 'ASSESSMENT_STORAGE_UNAVAILABLE',
+          message: 'We could not save this right now. Your completed work has been preserved. Please try again.',
+        },
+      },
+    };
+  }
+
   const statusCode = clientStatusCode(error);
   if (statusCode) {
     const message = error instanceof Error ? error.message : 'Request failed';

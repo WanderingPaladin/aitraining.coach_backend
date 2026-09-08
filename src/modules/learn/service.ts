@@ -1,8 +1,9 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../db/prisma.js';
-import { badRequest, forbidden, notFound } from '../../lib/errors.js';
+import { badRequest, conflict, forbidden, notFound } from '../../lib/errors.js';
 import { isUuid } from '../tracking/sanitize.js';
 import { COURSE_SLUG, PASS_SCORE, questionsForIds, selectAttemptQuestionIds } from './questions.js';
+import { encodeQuestionSet, mergeAnswers, publicAnswers, readQuestionSet } from './attempt-meta.js';
 import {
   bandForCategory,
   categoryLabel,
@@ -26,6 +27,13 @@ async function ensureVisitor(visitorId: string | null, userId: string | null) {
   if (existing) return existing.id;
   await prisma.visitor.create({ data: { id: visitorId, userId: userId ?? undefined } });
   return visitorId;
+}
+
+function learnLog(operation: string, payload: Record<string, unknown>) {
+  if (process.env.NODE_ENV === 'production' && process.env.LEARN_ASSESSMENT_DEBUG !== 'true') {
+    return;
+  }
+  console.info(`[Assessment:${operation}]`, payload);
 }
 
 function uniqueSorted(values: number[] | undefined) {
@@ -59,8 +67,8 @@ export function serializeProgress(row: {
   updatedAt: Date;
   completedAt: Date | null;
 }) {
-  const completed = row.completedModules;
-  const percent = Math.round((completed.length / 8) * 100);
+  const completed = uniqueSorted(row.completedModules);
+  const percent = Math.min(100, Math.max(0, Math.round((completed.length / 8) * 100) || 0));
   return {
     courseSlug: COURSE_SLUG,
     currentModule: row.currentModule,
@@ -135,17 +143,29 @@ async function findAttempt(id: string, identity: Identity) {
   return attempt;
 }
 
-function asIdList(value: Prisma.JsonValue | null | undefined): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === 'string');
-}
-
-function questionsForAttempt(attempt: { questionSet: Prisma.JsonValue | null; answers: Prisma.JsonValue }) {
-  const stored = asIdList(attempt.questionSet);
+function questionsForAttempt(attempt: { answers: Prisma.JsonValue }) {
+  const stored = readQuestionSet(attempt.answers);
   if (stored.length) return questionsForIds(stored);
-  const answered = Object.keys(asRecord(attempt.answers));
+  const answered = Object.keys(publicAnswers(attempt.answers));
   if (answered.length) return questionsForIds(answered);
   return questionsForIds(selectAttemptQuestionIds());
+}
+
+function questionIdsFor(attempt: { answers: Prisma.JsonValue }) {
+  const stored = readQuestionSet(attempt.answers);
+  if (stored.length) return stored;
+  return questionsForAttempt(attempt).map((item) => item.id);
+}
+
+function allowedAttempt(
+  attempt: { userId: string | null; visitorId: string | null },
+  identity: Identity,
+  visitorId: string | null,
+) {
+  return Boolean(
+    (identity.userId && attempt.userId === identity.userId) ||
+      (visitorId && attempt.visitorId === visitorId),
+  );
 }
 
 export async function startAttempt(identity: Identity, body: StartAttemptBody) {
@@ -153,20 +173,32 @@ export async function startAttempt(identity: Identity, body: StartAttemptBody) {
   if (!identity.userId && !visitorId) {
     throw badRequest('IDENTITY_REQUIRED', 'A visitor or account is required to start the assessment.');
   }
+
   if (body.attemptId) {
-    const existing = await prisma.assessmentAttempt.findUnique({ where: { id: body.attemptId } });
-    if (existing && !existing.submitted) {
-      const allowed =
-        (identity.userId && existing.userId === identity.userId) ||
-        (visitorId && existing.visitorId === visitorId);
-      if (allowed) {
+    const existing = await prisma.assessmentAttempt.findUnique({
+      where: { id: body.attemptId },
+      include: { certificate: true },
+    });
+    if (existing && allowedAttempt(existing, identity, visitorId)) {
+      if (existing.submitted) {
+        if (!body.retake) {
+          learnLog('start', { attemptId: existing.id, submitted: true, resumed: true });
+          return {
+            attempt: { id: existing.id, submitted: true, answers: {} },
+            questions: [],
+            result: serializeResult(existing),
+          };
+        }
+      } else {
+        learnLog('start', { attemptId: existing.id, submitted: false, resumed: true });
         return {
-          attempt: { id: existing.id, submitted: false, answers: existing.answers },
+          attempt: { id: existing.id, submitted: false, answers: publicAnswers(existing.answers) },
           questions: questionsForAttempt(existing),
         };
       }
     }
   }
+
   const open = await prisma.assessmentAttempt.findFirst({
     where: {
       courseSlug: body.courseSlug,
@@ -176,45 +208,69 @@ export async function startAttempt(identity: Identity, body: StartAttemptBody) {
         ...(visitorId ? [{ visitorId }] : []),
       ],
     },
+    include: { certificate: true },
     orderBy: { updatedAt: 'desc' },
   });
   if (open) {
-    return { attempt: { id: open.id, submitted: false, answers: open.answers }, questions: questionsForAttempt(open) };
+    learnLog('start', { attemptId: open.id, submitted: false, resumed: true });
+    return {
+      attempt: { id: open.id, submitted: false, answers: publicAnswers(open.answers) },
+      questions: questionsForAttempt(open),
+    };
   }
+
+  if (!body.retake) {
+    const latest = await prisma.assessmentAttempt.findFirst({
+      where: {
+        courseSlug: body.courseSlug,
+        submitted: true,
+        OR: [
+          ...(identity.userId ? [{ userId: identity.userId }] : []),
+          ...(visitorId ? [{ visitorId }] : []),
+        ],
+      },
+      include: { certificate: true },
+      orderBy: { submittedAt: 'desc' },
+    });
+    if (latest && latest.finalScore != null) {
+      learnLog('start', { attemptId: latest.id, submitted: true, resumed: true });
+      return {
+        attempt: { id: latest.id, submitted: true, answers: {} },
+        questions: [],
+        result: serializeResult(latest),
+      };
+    }
+  }
+
   const questionSet = selectAttemptQuestionIds();
   const created = await prisma.assessmentAttempt.create({
     data: {
       userId: identity.userId,
       visitorId,
       courseSlug: body.courseSlug,
-      answers: {},
-      questionSet,
+      answers: encodeQuestionSet(questionSet) as Prisma.InputJsonValue,
     },
   });
-  return { attempt: { id: created.id, submitted: false, answers: {} }, questions: questionsForIds(questionSet) };
+  learnLog('start', { attemptId: created.id, submitted: false, resumed: false, questionCount: questionSet.length });
+  return {
+    attempt: { id: created.id, submitted: false, answers: {} },
+    questions: questionsForIds(questionSet),
+  };
 }
 
 export async function saveAnswers(id: string, identity: Identity, body: SaveAnswersBody) {
   const attempt = await findAttempt(id, identity);
   if (attempt.submitted) {
-    throw badRequest('ALREADY_SUBMITTED', 'This assessment has already been submitted.');
+    throw conflict('ALREADY_SUBMITTED', 'Your assessment has already been submitted.');
   }
-  const merged = { ...(asRecord(attempt.answers)), ...normalizeAnswers(body.answers) };
+  const questionIds = questionIdsFor(attempt);
+  const merged = mergeAnswers(attempt.answers, normalizeAnswers(body.answers), questionIds);
   const updated = await prisma.assessmentAttempt.update({
     where: { id: attempt.id },
     data: { answers: merged as Prisma.InputJsonValue, visitorId: identity.visitorId ?? attempt.visitorId },
   });
-  return { id: updated.id, answers: updated.answers };
-}
-
-function asRecord(value: Prisma.JsonValue): Record<string, string> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-  const out: Record<string, string> = {};
-  for (const [key, item] of Object.entries(value)) {
-    if (typeof item === 'string') out[key] = item;
-    else if (typeof item === 'number' || typeof item === 'boolean') out[key] = String(item);
-  }
-  return out;
+  learnLog('answer', { attemptId: updated.id, answered: Object.keys(publicAnswers(updated.answers)).length });
+  return { id: updated.id, answers: publicAnswers(updated.answers) };
 }
 
 function normalizeAnswers(answers: Record<string, string | number | boolean | null>) {
@@ -240,10 +296,12 @@ export async function submitAttempt(id: string, identity: Identity, body: Submit
   }
   const attempt = await findAttempt(id, identity);
   if (attempt.submitted && attempt.finalScore != null) {
+    learnLog('submit', { attemptId: attempt.id, submitted: true, replay: true });
     return serializeResult(attempt);
   }
-  const answers = { ...asRecord(attempt.answers), ...normalizeAnswers(body.answers) };
-  const scored = scoreAttempt(answers, asIdList(attempt.questionSet));
+  const questionIds = questionIdsFor(attempt);
+  const answers = mergeAnswers(attempt.answers, normalizeAnswers(body.answers), questionIds);
+  const scored = scoreAttempt(publicAnswers(answers), questionIds);
   const name = displayName(body.firstName, body.lastName);
   let credentialId: string | null = null;
   const updated = await prisma.$transaction(async (tx) => {
@@ -292,7 +350,54 @@ export async function submitAttempt(id: string, identity: Identity, body: Submit
     }
     return tx.assessmentAttempt.findUniqueOrThrow({ where: { id: next.id }, include: { certificate: true } });
   });
+  learnLog('submit', {
+    attemptId: updated.id,
+    submitted: true,
+    passed: updated.passed,
+    hasCertificate: Boolean(updated.certificate),
+  });
   return serializeResult(updated);
+}
+
+export async function retryCertificate(id: string, identity: Identity) {
+  const attempt = await findAttempt(id, identity);
+  if (!attempt.submitted || attempt.finalScore == null) {
+    throw badRequest('NOT_SUBMITTED', 'Submit the assessment to see your score.');
+  }
+  if (!attempt.passed) {
+    throw badRequest('NOT_ELIGIBLE', 'A certificate is available after a passing assessment.');
+  }
+  if (attempt.certificate) {
+    learnLog('certificate', { attemptId: attempt.id, replay: true });
+    return serializeResult(attempt);
+  }
+  const name = (attempt.firstName ?? 'Learner').trim() || 'Learner';
+  for (let i = 0; i < 6; i += 1) {
+    const credentialId = newCredentialId();
+    try {
+      await prisma.courseCertificate.create({
+        data: {
+          credentialId,
+          attemptId: attempt.id,
+          userId: attempt.userId,
+          visitorId: attempt.visitorId,
+          courseSlug: attempt.courseSlug,
+          learnerDisplayName: name,
+          score: attempt.finalScore,
+          shareScore: attempt.shareScore,
+        },
+      });
+      break;
+    } catch {
+      // unique credential collision; retry
+    }
+  }
+  const next = await prisma.assessmentAttempt.findUniqueOrThrow({
+    where: { id: attempt.id },
+    include: { certificate: true },
+  });
+  learnLog('certificate', { attemptId: next.id, hasCertificate: Boolean(next.certificate) });
+  return serializeResult(next);
 }
 
 function categoryView(scores: Record<string, number> | null) {
@@ -350,13 +455,19 @@ function serializeResult(attempt: {
           learnerDisplayName: attempt.certificate.learnerDisplayName,
         }
       : null,
+    certificatePending: attempt.passed && !attempt.certificate,
   };
 }
 
 export async function getAttemptResult(id: string, identity: Identity) {
   const attempt = await findAttempt(id, identity);
   if (!attempt.submitted) {
-    return { attemptId: attempt.id, submitted: false, answers: attempt.answers, questions: questionsForAttempt(attempt) };
+    return {
+      attemptId: attempt.id,
+      submitted: false,
+      answers: publicAnswers(attempt.answers),
+      questions: questionsForAttempt(attempt),
+    };
   }
   return serializeResult(attempt);
 }

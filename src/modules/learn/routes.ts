@@ -13,6 +13,7 @@ import {
   getCertificatePdf,
   getProgress,
   getPublicCertificate,
+  retryCertificate,
   saveAnswers,
   saveProgress,
   startAttempt,
@@ -51,8 +52,23 @@ export const learnRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const body = startAttemptBody.parse(request.body);
       const user = await readSessionUser(request);
-      const result = await startAttempt({ userId: user?.id ?? null, visitorId: body.visitorId ?? null }, body);
-      return reply.code(201).send(result);
+      try {
+        const result = await startAttempt({ userId: user?.id ?? null, visitorId: body.visitorId ?? null }, body);
+        request.log.info(
+          {
+            op: 'assessment_start',
+            userId: user?.id ?? null,
+            attemptId: result.attempt.id,
+            submitted: result.attempt.submitted,
+            questionCount: result.questions.length,
+          },
+          '[Assessment:start]',
+        );
+        return reply.code(result.attempt.submitted ? 200 : 201).send(result);
+      } catch (error) {
+        request.log.error({ op: 'assessment_start', userId: user?.id ?? null, err: error }, '[Assessment:start]');
+        throw error;
+      }
     },
   );
 
@@ -63,7 +79,14 @@ export const learnRoutes: FastifyPluginAsync = async (fastify) => {
       const params = request.params as { id: string };
       const body = saveAnswersBody.parse(request.body);
       const user = await readSessionUser(request);
-      return saveAnswers(params.id, { userId: user?.id ?? null, visitorId: body.visitorId ?? null }, body);
+      try {
+        const result = await saveAnswers(params.id, { userId: user?.id ?? null, visitorId: body.visitorId ?? null }, body);
+        request.log.info({ op: 'assessment_answer', userId: user?.id ?? null, attemptId: params.id }, '[Assessment:answer]');
+        return result;
+      } catch (error) {
+        request.log.error({ op: 'assessment_answer', userId: user?.id ?? null, attemptId: params.id, err: error }, '[Assessment:answer]');
+        throw error;
+      }
     },
   );
 
@@ -74,7 +97,46 @@ export const learnRoutes: FastifyPluginAsync = async (fastify) => {
       const params = request.params as { id: string };
       const body = submitAttemptBody.parse(request.body);
       const user = await readSessionUser(request);
-      return submitAttempt(params.id, { userId: user?.id ?? null, visitorId: body.visitorId ?? null }, body);
+      try {
+        const result = await submitAttempt(params.id, { userId: user?.id ?? null, visitorId: body.visitorId ?? null }, body);
+        request.log.info(
+          {
+            op: 'assessment_submit',
+            userId: user?.id ?? null,
+            attemptId: params.id,
+            submitted: result.submitted,
+            passed: result.passed,
+            hasCertificate: Boolean(result.certificate),
+          },
+          '[Assessment:submit]',
+        );
+        return result;
+      } catch (error) {
+        request.log.error({ op: 'assessment_submit', userId: user?.id ?? null, attemptId: params.id, err: error }, '[Assessment:submit]');
+        throw error;
+      }
+    },
+  );
+
+  fastify.post(
+    '/learn/assessment/attempts/:id/certificate',
+    { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } },
+    async (request) => {
+      const params = request.params as { id: string };
+      const raw = request.body && typeof request.body === 'object' ? request.body : {};
+      const body = attemptQuery.parse({ ...(raw as object), ...(request.query as object) });
+      const user = await readSessionUser(request);
+      try {
+        const result = await retryCertificate(params.id, { userId: user?.id ?? null, visitorId: body.visitorId ?? null });
+        request.log.info(
+          { op: 'assessment_certificate', userId: user?.id ?? null, attemptId: params.id, hasCertificate: Boolean(result.certificate) },
+          '[Assessment:certificate]',
+        );
+        return result;
+      } catch (error) {
+        request.log.error({ op: 'assessment_certificate', userId: user?.id ?? null, attemptId: params.id, err: error }, '[Assessment:certificate]');
+        throw error;
+      }
     },
   );
 
@@ -82,7 +144,17 @@ export const learnRoutes: FastifyPluginAsync = async (fastify) => {
     const params = request.params as { id: string };
     const query = attemptQuery.parse(request.query);
     const user = await readSessionUser(request);
-    return getAttemptResult(params.id, { userId: user?.id ?? null, visitorId: query.visitorId ?? null });
+    try {
+      const result = await getAttemptResult(params.id, { userId: user?.id ?? null, visitorId: query.visitorId ?? null });
+      request.log.info(
+        { op: 'assessment_load', userId: user?.id ?? null, attemptId: params.id, submitted: result.submitted },
+        '[Assessment:load]',
+      );
+      return result;
+    } catch (error) {
+      request.log.error({ op: 'assessment_load', userId: user?.id ?? null, attemptId: params.id, err: error }, '[Assessment:load]');
+      throw error;
+    }
   });
 
   fastify.get('/learn/certificates/:credentialId', async (request) => {

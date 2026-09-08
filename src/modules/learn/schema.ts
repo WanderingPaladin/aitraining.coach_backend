@@ -32,6 +32,7 @@ export const startAttemptBody = z.object({
   visitorId: optionalUuid,
   courseSlug: z.literal(COURSE_SLUG).default(COURSE_SLUG),
   attemptId: z.string().cuid().optional(),
+  retake: z.boolean().optional().default(false),
 });
 
 export const saveAnswersBody = z.object({

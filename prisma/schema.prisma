@@ -718,7 +718,6 @@ model AssessmentAttempt {
   visitor        Visitor?            @relation(fields: [visitorId], references: [id], onDelete: SetNull)
   courseSlug     String
   answers        Json                @default("{}")
-  questionSet     Json?
   submitted      Boolean             @default(false)
   categoryScores Json?
   finalScore     Int?
