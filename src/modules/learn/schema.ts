@@ -15,9 +15,9 @@ export const learnerSituation = z.enum([
 export const progressBody = z.object({
   visitorId: optionalUuid,
   courseSlug: z.literal(COURSE_SLUG).default(COURSE_SLUG),
-  currentModule: z.number().int().min(1).max(6).optional(),
-  completedModules: z.array(z.number().int().min(1).max(6)).max(6).optional(),
-  startedModules: z.array(z.number().int().min(1).max(6)).max(6).optional(),
+  currentModule: z.number().int().min(1).max(8).optional(),
+  completedModules: z.array(z.number().int().min(1).max(8)).max(8).optional(),
+  startedModules: z.array(z.number().int().min(1).max(8)).max(8).optional(),
   quizResults: z.record(z.union([z.boolean(), z.number(), z.string()])).optional(),
   lastLesson: z.string().trim().max(80).optional(),
   completedAt: z.boolean().optional(),

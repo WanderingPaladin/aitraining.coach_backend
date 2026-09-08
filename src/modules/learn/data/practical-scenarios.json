@@ -1,0 +1,132 @@
+{
+  "version": "2.0",
+  "scenarios": [
+    {
+      "id": "constraint-detective-01",
+      "lab": "Constraint Detective",
+      "category": "instruction_following",
+      "prompt": "Recommend exactly three inexpensive activities for a rainy day at home. Keep the entire response under 50 words.",
+      "responseA": "Read a book, try a simple home workout, or cook something using ingredients you already have.",
+      "responseB": "Read, watch movies, cook, exercise, drive somewhere, visit friends, play games, or start a new hobby.",
+      "preferred": "A",
+      "rubric": [
+        "Identifies A",
+        "Notes exactly three activities",
+        "Notes at-home requirement",
+        "Notes B gives too many options"
+      ],
+      "explanation": "A satisfies the count, context, and concision requirements."
+    },
+    {
+      "id": "ranking-01",
+      "lab": "Response Ranking",
+      "category": "response_evaluation",
+      "prompt": "Explain why the sky appears blue in two beginner-friendly sentences.",
+      "responseA": "The atmosphere scatters shorter blue wavelengths of sunlight more strongly than many longer wavelengths. That scattered blue light reaches our eyes from many directions.",
+      "responseB": "Rayleigh scattering results from wavelength-dependent electromagnetic interactions within gaseous molecular media, creating a spectral angular redistribution.",
+      "preferred": "A",
+      "rubric": [
+        "Identifies A",
+        "Mentions beginner-friendly language",
+        "Recognizes B is unnecessarily technical",
+        "Notes A directly explains the effect"
+      ],
+      "explanation": "A is more appropriate for the requested audience and stays within two sentences."
+    },
+    {
+      "id": "hallucination-01",
+      "lab": "Hallucination Spotter",
+      "category": "factuality_research",
+      "prompt": "Evaluate this claim: 'The company launched its newest product yesterday and sold exactly 2.4 million units in the first six hours.'",
+      "preferred": "flag",
+      "rubric": [
+        "Recognizes currentness",
+        "Recognizes exact statistic",
+        "Requests verification",
+        "Avoids assuming it is true"
+      ],
+      "explanation": "Highly precise current claims deserve verification."
+    },
+    {
+      "id": "tone-01",
+      "lab": "Audience & Tone",
+      "category": "response_evaluation",
+      "prompt": "Write a professional, friendly one-sentence message declining tomorrow's meeting.",
+      "responseA": "Can't make it.",
+      "responseB": "Thank you for the invitation, but unfortunately I won't be available for tomorrow's meeting.",
+      "preferred": "B",
+      "rubric": [
+        "Identifies B",
+        "Mentions professional tone",
+        "Mentions clear decline",
+        "Mentions one-sentence compliance"
+      ],
+      "explanation": "B satisfies the tone and communication requirements."
+    },
+    {
+      "id": "evidence-01",
+      "lab": "Evidence Check",
+      "category": "factuality_research",
+      "prompt": "Which source would you prefer for checking the current eligibility age for a U.S. federal program?",
+      "responseA": "A five-year-old forum comment",
+      "responseB": "The program's current official government page",
+      "preferred": "B",
+      "rubric": [
+        "Identifies B",
+        "Recognizes official source authority",
+        "Recognizes currentness",
+        "Avoids outdated anecdotal source"
+      ],
+      "explanation": "A current primary government source is generally stronger."
+    },
+    {
+      "id": "justification-01",
+      "lab": "Justification Builder",
+      "category": "written_reasoning",
+      "prompt": "User asks for two pros and two cons. Response A gives two pros and two cons. Response B gives four pros and no cons. Write a 2-sentence justification.",
+      "expectedConcepts": [
+        "A is stronger",
+        "A satisfies both requested categories",
+        "B omits disadvantages",
+        "Tie conclusion to instruction following"
+      ],
+      "rubric": [
+        "Decision",
+        "Specific evidence",
+        "Impact",
+        "Neutral tone"
+      ],
+      "example": "Response A is stronger because it provides both two advantages and two disadvantages as requested. Response B gives only advantages, so it does not complete the full task."
+    },
+    {
+      "id": "multi-constraint-01",
+      "lab": "Multi-constraint Challenge",
+      "category": "attention_to_detail",
+      "prompt": "Give exactly two free outdoor activities in Chicago. Use bullet points. Each item must be five words or fewer. Do not mention parks.",
+      "responseA": "- Walk the Lakefront Trail\\n- Explore public street art",
+      "responseB": "- Visit Millennium Park for free\\n- Walk the Lakefront Trail today",
+      "preferred": "A",
+      "rubric": [
+        "Identifies A",
+        "Recognizes no-parks restriction",
+        "Checks two items",
+        "Checks word limit"
+      ],
+      "explanation": "A meets the explicit constraints."
+    },
+    {
+      "id": "mixed-01",
+      "lab": "Final Mixed Practice",
+      "category": "mixed",
+      "prompt": "A user asks for a neutral, 3-bullet summary of two competing proposals. Response A gives three balanced bullets. Response B gives three bullets but calls one proposal 'obviously ridiculous.' Which is better and why?",
+      "preferred": "A",
+      "rubric": [
+        "Identifies A",
+        "Mentions neutrality",
+        "Recognizes loaded language in B",
+        "Notes both satisfy bullet count but differ on tone"
+      ],
+      "explanation": "A better follows the neutrality requirement."
+    }
+  ]
+}

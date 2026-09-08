@@ -59,21 +59,21 @@ export async function buildCertificatePdf(input: {
     font: heading,
     color: navy,
   });
-  page.drawText('has successfully completed the AI Training Foundations Program', {
+  page.drawText('has successfully completed the AI Training Foundations educational program', {
     x: 56,
     y: 322,
     size: 13,
     font: body,
     color: ink,
   });
-  page.drawText('and demonstrated foundational understanding of AI response evaluation,', {
+  page.drawText('and met the program’s internal readiness-assessment requirement, covering prompt', {
     x: 56,
     y: 302,
     size: 12,
     font: body,
     color: muted,
   });
-  page.drawText('instruction following, factuality assessment, written reasoning, and quality evaluation.', {
+  page.drawText('interpretation, instruction following, response evaluation, factuality, and written reasoning.', {
     x: 56,
     y: 286,
     size: 12,

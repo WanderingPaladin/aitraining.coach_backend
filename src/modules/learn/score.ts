@@ -44,12 +44,18 @@ function itemScore(questionId: string, raw: unknown): number {
   return value && value === question.correct ? 1 : 0;
 }
 
-export function scoreAttempt(answers: Record<string, unknown>): {
+export function scoreAttempt(
+  answers: Record<string, unknown>,
+  questionIds?: string[],
+): {
   finalScore: number;
   passed: boolean;
   categoryScores: Record<ScoreCategory, number>;
   perQuestion: Array<{ id: string; correct: boolean; explanation: string; score: number }>;
 } {
+  const selected = questionIds?.length
+    ? ASSESSMENT_QUESTIONS.filter((item) => questionIds.includes(item.id))
+    : ASSESSMENT_QUESTIONS.filter((item) => item.id.startsWith('q'));
   const grouped: Record<ScoreCategory, number[]> = {
     instruction_following: [],
     response_evaluation: [],
@@ -57,7 +63,7 @@ export function scoreAttempt(answers: Record<string, unknown>): {
     written_reasoning: [],
     attention_to_detail: [],
   };
-  const perQuestion = ASSESSMENT_QUESTIONS.map((question) => {
+  const perQuestion = selected.map((question) => {
     const score = itemScore(question.id, answers[question.id]);
     grouped[question.category].push(score);
     return {
@@ -99,46 +105,46 @@ export function levelForScore(score: number): ScoreLevel {
 export const LEVEL_COPY: Record<ScoreLevel, { title: string; body: string; cta: string }> = {
   excellent: {
     title: 'Excellent Foundation',
-    body: 'You demonstrated strong foundational skills in instruction following, response evaluation, factuality judgment, and written reasoning.',
-    cta: 'Explore opportunities that match your existing professional or academic skills.',
+    body: 'You demonstrated strong foundational judgment across the core evaluation skills covered in this course.',
+    cta: 'Explore opportunities aligned with your real background.',
   },
   ready: {
     title: 'Ready to Start',
-    body: 'You have a solid foundation for beginner AI-evaluation work. A few areas may benefit from additional practice, but you understand the core concepts covered in this course.',
-    cta: 'Practice your weaker areas and explore suitable opportunities.',
+    body: 'You have a solid foundation for beginner AI-evaluation practice, with a few areas worth strengthening.',
+    cta: 'Practice your lowest-scoring skill and review relevant module examples.',
   },
   developing: {
     title: 'Developing',
-    body: 'You understand many of the important concepts, but your results suggest that additional practice would be useful before attempting more demanding evaluation work.',
-    cta: 'Review your lowest-scoring modules and complete additional practice exercises.',
+    body: 'You understand many of the core concepts, but additional practice should improve consistency.',
+    cta: 'Repeat targeted practice labs and review your lowest two categories.',
   },
   foundation: {
     title: 'Foundation Stage',
-    body: 'You’re still developing the foundational skills covered in this course. Reviewing the lessons and practicing response evaluation should help strengthen your understanding.',
-    cta: 'Review the course before retaking the assessment.',
+    body: 'You are still building the core evaluation habits covered in this course.',
+    cta: 'Review the course modules and practice before retaking the assessment.',
   },
 };
 
 export const CATEGORY_COPY: Record<ScoreCategory, { strong: string; develop: string }> = {
   instruction_following: {
-    strong: 'You’re strong at identifying explicit requirements and noticing when responses violate formatting, length, or content constraints.',
-    develop: 'Practice turning prompts into checklists and evaluating every constraint separately.',
+    strong: 'You reliably identify explicit constraints and notice when responses miss format, count, audience, or content requirements.',
+    develop: 'Practice turning every complex prompt into a checklist before judging the answer.',
   },
   response_evaluation: {
-    strong: 'You consistently distinguish stronger and weaker responses using relevance, clarity, completeness, and overall usefulness.',
-    develop: 'Practice comparing responses across several quality dimensions instead of relying on overall impression.',
+    strong: 'You compare responses using relevance, clarity, completeness, and overall task fit rather than surface fluency alone.',
+    develop: 'Practice evaluating each response independently before comparing them.',
   },
   factuality: {
-    strong: 'You show good judgment around factual claims, uncertainty, and when verification is appropriate.',
-    develop: 'Practice distinguishing factual claims from opinions and identifying claims that require verification.',
+    strong: 'You show good judgment around verifiable claims, source quality, uncertainty, and unsupported certainty.',
+    develop: 'Practice identifying exact claims that need verification and choosing stronger sources.',
   },
   written_reasoning: {
-    strong: 'Your evaluation explanations are generally specific, neutral, and evidence-based.',
-    develop: 'Use the Decision → Evidence → Impact framework to make your explanations more specific.',
+    strong: 'Your explanations are specific, neutral, and tied to observable evidence.',
+    develop: 'Use Decision → Evidence → Impact to make justifications less vague.',
   },
   attention_to_detail: {
-    strong: 'You reliably notice subtle prompt constraints and small instruction violations.',
-    develop: 'Slow down on multi-constraint prompts and use a checklist before making the final judgment.',
+    strong: 'You consistently catch subtle numeric, formatting, exclusion, and wording constraints.',
+    develop: 'Slow down on multi-constraint tasks and use a final requirement checklist.',
   },
 };
 

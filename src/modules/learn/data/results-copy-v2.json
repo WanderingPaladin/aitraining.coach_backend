@@ -1,0 +1,84 @@
+{
+  "bands": [
+    {
+      "min": 90,
+      "max": 100,
+      "label": "Excellent Foundation",
+      "body": "You demonstrated strong foundational judgment across the core evaluation skills covered in this course.",
+      "next": [
+        "Explore opportunities aligned with your real background",
+        "Try advanced mixed practice",
+        "Keep using evidence-based evaluation habits"
+      ]
+    },
+    {
+      "min": 75,
+      "max": 89,
+      "label": "Ready to Start",
+      "body": "You have a solid foundation for beginner AI-evaluation practice, with a few areas worth strengthening.",
+      "next": [
+        "Practice your lowest-scoring skill",
+        "Review relevant module examples",
+        "Explore suitable opportunities without treating the score as a hiring guarantee"
+      ]
+    },
+    {
+      "min": 60,
+      "max": 74,
+      "label": "Developing",
+      "body": "You understand many of the core concepts, but additional practice should improve consistency.",
+      "next": [
+        "Repeat targeted practice labs",
+        "Review your lowest two categories",
+        "Retake after more practice"
+      ]
+    },
+    {
+      "min": 0,
+      "max": 59,
+      "label": "Foundation Stage",
+      "body": "You are still building the core evaluation habits covered in this course.",
+      "next": [
+        "Review the course modules",
+        "Use the constraint and comparison checklists",
+        "Practice before retaking the assessment"
+      ]
+    }
+  ],
+  "categoryCopy": {
+    "instruction_following": {
+      "strong": "You reliably identify explicit constraints and notice when responses miss format, count, audience, or content requirements.",
+      "develop": "Practice turning every complex prompt into a checklist before judging the answer."
+    },
+    "response_evaluation": {
+      "strong": "You compare responses using relevance, clarity, completeness, and overall task fit rather than surface fluency alone.",
+      "develop": "Practice evaluating each response independently before comparing them."
+    },
+    "factuality_research": {
+      "strong": "You show good judgment around verifiable claims, source quality, uncertainty, and unsupported certainty.",
+      "develop": "Practice identifying exact claims that need verification and choosing stronger sources."
+    },
+    "written_reasoning": {
+      "strong": "Your explanations are specific, neutral, and tied to observable evidence.",
+      "develop": "Use Decision → Evidence → Impact to make justifications less vague."
+    },
+    "attention_to_detail": {
+      "strong": "You consistently catch subtle numeric, formatting, exclusion, and wording constraints.",
+      "develop": "Slow down on multi-constraint tasks and use a final requirement checklist."
+    }
+  },
+  "ctas": {
+    "opportunities": {
+      "label": "View Recommended Opportunities",
+      "href": "/opportunities"
+    },
+    "coach": {
+      "label": "Review My Results With a Coach",
+      "action": "existing_booking_flow"
+    },
+    "practice": {
+      "label": "Practice My Weakest Skill",
+      "href": "/learn/ai-training-foundations/practice"
+    }
+  }
+}

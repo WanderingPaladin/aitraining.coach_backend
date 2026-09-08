@@ -1,0 +1,721 @@
+{
+  "version": "2.0",
+  "finalAttemptQuestionCount": 24,
+  "practicalTaskCount": 2,
+  "categories": {
+    "instruction_following": {
+      "weight": 25,
+      "targetQuestions": 5
+    },
+    "response_evaluation": {
+      "weight": 25,
+      "targetQuestions": 5
+    },
+    "factuality_research": {
+      "weight": 20,
+      "targetQuestions": 5
+    },
+    "written_reasoning": {
+      "weight": 20,
+      "targetQuestions": 5
+    },
+    "attention_to_detail": {
+      "weight": 10,
+      "targetQuestions": 4
+    }
+  },
+  "questions": [
+    {
+      "id": 1,
+      "category": "instruction_following",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "A prompt asks for exactly four fruits and says not to include bananas. Which response violates the prompt?",
+      "options": [
+        "Apples, pears, oranges, grapes",
+        "Apples, bananas, oranges, grapes",
+        "Pears, peaches, plums, grapes",
+        "Apples, oranges, kiwi, melon"
+      ],
+      "answerIndex": 1,
+      "explanation": "Bananas were explicitly prohibited."
+    },
+    {
+      "id": 2,
+      "category": "instruction_following",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "The user asks for two bullet points. A response gives three excellent bullet points. What is the main issue?",
+      "options": [
+        "Tone",
+        "Instruction following",
+        "Factuality",
+        "Safety"
+      ],
+      "answerIndex": 1,
+      "explanation": "The response violates the requested count."
+    },
+    {
+      "id": 3,
+      "category": "instruction_following",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Prompt: 'Explain gravity to a six-year-old without technical jargon.' Which answer better follows the instruction?",
+      "options": [
+        "Gravity is the curvature of spacetime caused by mass-energy.",
+        "Gravity is the pull that makes things fall toward the ground."
+      ],
+      "answerIndex": 1,
+      "explanation": "The second answer is age-appropriate and avoids jargon."
+    },
+    {
+      "id": 4,
+      "category": "instruction_following",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Prompt: 'Write one sentence under 20 words.' The response uses 17 words but two sentences. Is there an issue?",
+      "options": [
+        "Yes",
+        "No"
+      ],
+      "answerIndex": 0,
+      "explanation": "It violates the one-sentence requirement."
+    },
+    {
+      "id": 5,
+      "category": "instruction_following",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Prompt: 'Recommend a laptop under $800.' The response recommends a $1,399 model. What matters most?",
+      "options": [
+        "The brand",
+        "The budget violation",
+        "The answer length",
+        "The screen size"
+      ],
+      "answerIndex": 1,
+      "explanation": "The explicit budget is not followed."
+    },
+    {
+      "id": 6,
+      "category": "instruction_following",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Prompt: 'Give three tips. Do not mention social media.' Which is a hard constraint?",
+      "options": [
+        "Friendly tone",
+        "Exactly three tips and no social media",
+        "Use advanced vocabulary",
+        "Add a conclusion"
+      ],
+      "answerIndex": 1,
+      "explanation": "Those requirements are explicit."
+    },
+    {
+      "id": 7,
+      "category": "instruction_following",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Which workflow best reduces missed constraints?",
+      "options": [
+        "Read only the answer",
+        "Turn the prompt into a checklist",
+        "Prefer longer answers",
+        "Focus on grammar first"
+      ],
+      "answerIndex": 1,
+      "explanation": "Checklist decomposition helps evaluate every requirement."
+    },
+    {
+      "id": 8,
+      "category": "instruction_following",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Prompt: 'Use a table with two columns.' The response gives the correct information as a paragraph. What issue is clearest?",
+      "options": [
+        "Formatting/instruction following",
+        "Factuality",
+        "Relevance",
+        "Safety"
+      ],
+      "answerIndex": 0,
+      "explanation": "The required format was not used."
+    },
+    {
+      "id": 9,
+      "category": "instruction_following",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Prompt: 'Answer in Spanish.' The response is in English. What should the evaluator note?",
+      "options": [
+        "A language requirement violation",
+        "A factuality issue",
+        "A citation issue",
+        "No issue"
+      ],
+      "answerIndex": 0,
+      "explanation": "The response ignores an explicit language constraint."
+    },
+    {
+      "id": 10,
+      "category": "instruction_following",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Prompt: 'Give one advantage and one disadvantage.' The response gives four advantages. What's missing?",
+      "options": [
+        "A title",
+        "A disadvantage",
+        "A citation",
+        "A greeting"
+      ],
+      "answerIndex": 1,
+      "explanation": "Half the requested comparison is missing."
+    },
+    {
+      "id": 11,
+      "category": "response_evaluation",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Which dimension asks whether the answer stays focused on the user's request?",
+      "options": [
+        "Relevance",
+        "Creativity",
+        "Length",
+        "Formatting"
+      ],
+      "answerIndex": 0,
+      "explanation": "Relevance measures focus on the requested task."
+    },
+    {
+      "id": 12,
+      "category": "response_evaluation",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "An answer is accurate but addresses only one of two requested questions. What is the clearest weakness?",
+      "options": [
+        "Completeness",
+        "Spelling",
+        "Politeness",
+        "Originality"
+      ],
+      "answerIndex": 0,
+      "explanation": "It does not answer all requested parts."
+    },
+    {
+      "id": 13,
+      "category": "response_evaluation",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Which statement is most accurate?",
+      "options": [
+        "Longer answers are always better",
+        "Polished language guarantees quality",
+        "Quality depends on the rubric and request",
+        "The shortest answer always wins"
+      ],
+      "answerIndex": 2,
+      "explanation": "Evaluation is criterion-based."
+    },
+    {
+      "id": 14,
+      "category": "response_evaluation",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "A response contains ten correct facts but never answers the user's question. Should it score strongly overall?",
+      "options": [
+        "Yes",
+        "No"
+      ],
+      "answerIndex": 1,
+      "explanation": "Correct facts are not useful if they are irrelevant."
+    },
+    {
+      "id": 15,
+      "category": "response_evaluation",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Response A has one major factual error. Response B has two minor style issues. Which principle matters?",
+      "options": [
+        "Raw issue count only",
+        "Issue severity",
+        "Word count",
+        "Alphabetical order"
+      ],
+      "answerIndex": 1,
+      "explanation": "Major errors can outweigh several minor ones."
+    },
+    {
+      "id": 16,
+      "category": "response_evaluation",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "If two answers satisfy the rubric equally and ties are allowed, what should you do?",
+      "options": [
+        "Invent a difference",
+        "Choose the longer one",
+        "Use a tie",
+        "Choose randomly"
+      ],
+      "answerIndex": 2,
+      "explanation": "Do not invent distinctions."
+    },
+    {
+      "id": 17,
+      "category": "response_evaluation",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "A response is clear and concise but gives outdated information to a current-information question. Which issue is strongest?",
+      "options": [
+        "Accuracy/currentness",
+        "Tone",
+        "Formatting",
+        "Creativity"
+      ],
+      "answerIndex": 0,
+      "explanation": "The answer is not current enough for the request."
+    },
+    {
+      "id": 18,
+      "category": "response_evaluation",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Which is the better evaluation habit?",
+      "options": [
+        "Judge overall vibe first",
+        "Evaluate each response independently before comparing",
+        "Always prefer Response A",
+        "Always choose the concise answer"
+      ],
+      "answerIndex": 1,
+      "explanation": "Independent evaluation reduces anchoring."
+    },
+    {
+      "id": 19,
+      "category": "response_evaluation",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "A user asks for beginner-friendly instructions. The answer is correct but full of unexplained jargon. Which quality is reduced?",
+      "options": [
+        "Clarity",
+        "Factuality",
+        "Availability",
+        "Citation count"
+      ],
+      "answerIndex": 0,
+      "explanation": "The audience cannot easily understand it."
+    },
+    {
+      "id": 20,
+      "category": "response_evaluation",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "A user asks for a neutral comparison, but the response insults one option. Which issue is clearest?",
+      "options": [
+        "Tone/objectivity",
+        "Word count",
+        "Spelling",
+        "Formatting"
+      ],
+      "answerIndex": 0,
+      "explanation": "The requested neutrality is violated."
+    },
+    {
+      "id": 21,
+      "category": "factuality_research",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Which is primarily an opinion?",
+      "options": [
+        "Paris is in France.",
+        "Water freezes near 0°C at standard pressure.",
+        "Summer is the best season.",
+        "Earth orbits the Sun."
+      ],
+      "answerIndex": 2,
+      "explanation": "'Best' is subjective."
+    },
+    {
+      "id": 22,
+      "category": "factuality_research",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "An AI provides a precise current statistic without support. If research is allowed, what is the best action?",
+      "options": [
+        "Assume it is correct",
+        "Verify with an appropriate reliable source",
+        "Reject all statistics",
+        "Ignore it"
+      ],
+      "answerIndex": 1,
+      "explanation": "Precise current claims should be checked."
+    },
+    {
+      "id": 23,
+      "category": "factuality_research",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "A quotation attributed to a researcher cannot be found in reliable sources. What is a reasonable concern?",
+      "options": [
+        "Potential fabrication or misattribution",
+        "The quote must be true",
+        "The answer is too short",
+        "No concern"
+      ],
+      "answerIndex": 0,
+      "explanation": "AI can fabricate or misattribute quotes."
+    },
+    {
+      "id": 24,
+      "category": "factuality_research",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Which source is generally strongest for a current government requirement?",
+      "options": [
+        "Random forum comment",
+        "Official government source",
+        "Old marketing blog",
+        "Anonymous social post"
+      ],
+      "answerIndex": 1,
+      "explanation": "Primary authoritative sources are preferable."
+    },
+    {
+      "id": 25,
+      "category": "factuality_research",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "A response says 'this investment cannot lose money.' What issue stands out?",
+      "options": [
+        "Overconfidence and unsupported guarantee",
+        "Grammar",
+        "Formatting",
+        "Length"
+      ],
+      "answerIndex": 0,
+      "explanation": "Financial outcomes cannot be guaranteed that way."
+    },
+    {
+      "id": 26,
+      "category": "factuality_research",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Which claim most clearly needs verification?",
+      "options": [
+        "I enjoy coffee.",
+        "The company has exactly 18,432 employees today.",
+        "Blue feels calming to me.",
+        "This interface looks clean."
+      ],
+      "answerIndex": 1,
+      "explanation": "It is precise, factual, and current."
+    },
+    {
+      "id": 27,
+      "category": "factuality_research",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "What is calibration?",
+      "options": [
+        "Making every answer longer",
+        "Matching confidence to available evidence",
+        "Always using citations",
+        "Avoiding all conclusions"
+      ],
+      "answerIndex": 1,
+      "explanation": "Calibration means expressing confidence proportionally to evidence."
+    },
+    {
+      "id": 28,
+      "category": "factuality_research",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "A response mixes one correct statement with one false statement. Can it still have a factuality problem?",
+      "options": [
+        "Yes",
+        "No"
+      ],
+      "answerIndex": 0,
+      "explanation": "Partial correctness does not remove the false claim."
+    },
+    {
+      "id": 29,
+      "category": "factuality_research",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "When reliable sources disagree, which is usually better?",
+      "options": [
+        "Invent certainty",
+        "Acknowledge uncertainty and explain the evidence",
+        "Pick the first result",
+        "Ignore the conflict"
+      ],
+      "answerIndex": 1,
+      "explanation": "Uncertainty should be represented honestly."
+    },
+    {
+      "id": 30,
+      "category": "factuality_research",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Which topic generally deserves extra verification care?",
+      "options": [
+        "Medical treatment advice",
+        "Favorite color",
+        "A fictional character preference",
+        "A casual joke"
+      ],
+      "answerIndex": 0,
+      "explanation": "Medical claims are high-stakes."
+    },
+    {
+      "id": 31,
+      "category": "written_reasoning",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Which feedback is stronger?",
+      "options": [
+        "B is bad.",
+        "Response B misses the user's second question, so the answer is incomplete."
+      ],
+      "answerIndex": 1,
+      "explanation": "It identifies evidence and impact."
+    },
+    {
+      "id": 32,
+      "category": "written_reasoning",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Which best follows Decision → Evidence → Impact?",
+      "options": [
+        "A wins.",
+        "A is stronger because it follows the two-item limit, while B gives four items; therefore A better satisfies the prompt."
+      ],
+      "answerIndex": 1,
+      "explanation": "It states a decision, evidence, and why it matters."
+    },
+    {
+      "id": 33,
+      "category": "written_reasoning",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Which wording is more neutral?",
+      "options": [
+        "This answer is ridiculous.",
+        "The response contains a factual error."
+      ],
+      "answerIndex": 1,
+      "explanation": "Neutral language is more professional."
+    },
+    {
+      "id": 34,
+      "category": "written_reasoning",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "A good justification should primarily reference:",
+      "options": [
+        "Personal taste",
+        "Observable rubric-relevant evidence",
+        "The evaluator's mood",
+        "Which response is longer"
+      ],
+      "answerIndex": 1,
+      "explanation": "Justifications should be evidence-based."
+    },
+    {
+      "id": 35,
+      "category": "written_reasoning",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Which is too vague to be useful feedback?",
+      "options": [
+        "The response omits the requested price comparison.",
+        "This feels off."
+      ],
+      "answerIndex": 1,
+      "explanation": "It does not identify a specific issue."
+    },
+    {
+      "id": 36,
+      "category": "written_reasoning",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "If the main problem is a budget violation, what should the explanation focus on?",
+      "options": [
+        "Every grammar choice",
+        "The price exceeding the user's limit",
+        "The brand logo",
+        "The answer's font"
+      ],
+      "answerIndex": 1,
+      "explanation": "Focus on the highest-impact criterion."
+    },
+    {
+      "id": 37,
+      "category": "written_reasoning",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Which is a stronger justification for a child-friendly answer?",
+      "options": [
+        "B sounds nicer.",
+        "B uses simple language appropriate for the requested age, while A relies on technical terminology."
+      ],
+      "answerIndex": 1,
+      "explanation": "It ties evidence to the audience requirement."
+    },
+    {
+      "id": 38,
+      "category": "written_reasoning",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Should a justification list every tiny issue when one major issue decides the ranking?",
+      "options": [
+        "Usually no; focus on decisive evidence",
+        "Always yes"
+      ],
+      "answerIndex": 0,
+      "explanation": "Concise decisive evidence is often stronger."
+    },
+    {
+      "id": 39,
+      "category": "written_reasoning",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Which statement is an evaluation rather than an insult?",
+      "options": [
+        "Only an idiot would write this.",
+        "The answer does not follow the requested format."
+      ],
+      "answerIndex": 1,
+      "explanation": "Professional evaluation describes the issue."
+    },
+    {
+      "id": 40,
+      "category": "written_reasoning",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "What should personal style preference do when the rubric does not mention it?",
+      "options": [
+        "Override the rubric",
+        "Remain secondary",
+        "Automatically fail the answer",
+        "Determine the score"
+      ],
+      "answerIndex": 1,
+      "explanation": "Rubric criteria should control."
+    },
+    {
+      "id": 41,
+      "category": "attention_to_detail",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Prompt: 'List Sacramento, San Diego, and Los Angeles alphabetically.' Which order is correct?",
+      "options": [
+        "San Diego, Los Angeles, Sacramento",
+        "Los Angeles, Sacramento, San Diego",
+        "Sacramento, Los Angeles, San Diego",
+        "Los Angeles, San Diego, Sacramento"
+      ],
+      "answerIndex": 1,
+      "explanation": "Alphabetical order is Los Angeles, Sacramento, San Diego."
+    },
+    {
+      "id": 42,
+      "category": "attention_to_detail",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Prompt: 'Give exactly two examples, each one sentence.' The answer contains two examples, but the second is two sentences. Is there a violation?",
+      "options": [
+        "Yes",
+        "No"
+      ],
+      "answerIndex": 0,
+      "explanation": "Each example was required to be one sentence."
+    },
+    {
+      "id": 43,
+      "category": "attention_to_detail",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Prompt: 'Do not mention museums.' Which recommendation violates the instruction?",
+      "options": [
+        "Walk through Central Park",
+        "Visit the Metropolitan Museum of Art",
+        "Use a public library",
+        "Walk the High Line"
+      ],
+      "answerIndex": 1,
+      "explanation": "The Metropolitan Museum is a museum."
+    },
+    {
+      "id": 44,
+      "category": "attention_to_detail",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Prompt: 'Use no more than 30 words.' The response contains 31 words. Is the hard limit exceeded?",
+      "options": [
+        "Yes",
+        "No"
+      ],
+      "answerIndex": 0,
+      "explanation": "A maximum of 30 means 31 violates the constraint."
+    },
+    {
+      "id": 45,
+      "category": "attention_to_detail",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Which habit best catches subtle constraint errors?",
+      "options": [
+        "Skim once",
+        "Use a requirement checklist before finalizing",
+        "Choose by tone only",
+        "Ignore exact numbers"
+      ],
+      "answerIndex": 1,
+      "explanation": "A checklist helps catch small violations."
+    },
+    {
+      "id": 46,
+      "category": "attention_to_detail",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Prompt: 'Give three free activities.' One recommendation requires a paid ticket. What is the issue?",
+      "options": [
+        "The free-cost constraint is violated",
+        "The answer is too formal",
+        "The response needs a title",
+        "No issue"
+      ],
+      "answerIndex": 0,
+      "explanation": "The activity is not free."
+    },
+    {
+      "id": 47,
+      "category": "attention_to_detail",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Prompt: 'Reply with only Yes or No.' Response: 'Yes, absolutely.' Is it fully compliant?",
+      "options": [
+        "Yes",
+        "No"
+      ],
+      "answerIndex": 1,
+      "explanation": "The prompt requires only the word Yes or No."
+    },
+    {
+      "id": 48,
+      "category": "attention_to_detail",
+      "type": "multiple_choice",
+      "context": null,
+      "prompt": "Prompt: 'Use lowercase only.' Response contains one capitalized word. What is the correct observation?",
+      "options": [
+        "A formatting constraint was violated",
+        "No issue",
+        "A factuality issue",
+        "A safety issue"
+      ],
+      "answerIndex": 0,
+      "explanation": "Even a single capital letter violates a strict lowercase-only requirement."
+    }
+  ]
+}

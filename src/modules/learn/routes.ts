@@ -41,8 +41,8 @@ export const learnRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   fastify.get('/learn/assessment/questions', async () => {
-    const { publicQuestions } = await import('./questions.js');
-    return { questions: publicQuestions() };
+    const { ATTEMPT_QUESTION_COUNT, ATTEMPT_PRACTICAL_COUNT } = await import('./questions.js');
+    return { count: ATTEMPT_QUESTION_COUNT + ATTEMPT_PRACTICAL_COUNT };
   });
 
   fastify.post(
