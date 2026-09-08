@@ -93,7 +93,7 @@ export async function buildCertificatePdf(input: {
   });
 
   page.drawText(
-    'This certificate represents completion of the AITrainers.coach educational program. It does not represent employment, third-party accreditation, guaranteed platform acceptance, guaranteed project availability, or guaranteed income.',
+    'This certificate confirms completion of an educational program provided by AITrainers.coach. It is not a professional license or third-party accreditation and does not guarantee employment, acceptance by any AI-training platform, project availability, or income.',
     {
       x: 56,
       y: 64,

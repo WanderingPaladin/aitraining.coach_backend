@@ -96,24 +96,55 @@ export function levelForScore(score: number): ScoreLevel {
   return 'foundation';
 }
 
-export const LEVEL_COPY: Record<ScoreLevel, { title: string; body: string }> = {
+export const LEVEL_COPY: Record<ScoreLevel, { title: string; body: string; cta: string }> = {
   excellent: {
     title: 'Excellent Foundation',
-    body: 'You demonstrated strong foundational evaluation, instruction-following, and written-reasoning skills.',
+    body: 'You demonstrated strong foundational skills in instruction following, response evaluation, factuality judgment, and written reasoning.',
+    cta: 'Explore opportunities that match your existing professional or academic skills.',
   },
   ready: {
     title: 'Ready to Start',
-    body: 'You have a solid foundation for beginner AI-training work, with a few areas worth strengthening.',
+    body: 'You have a solid foundation for beginner AI-evaluation work. A few areas may benefit from additional practice, but you understand the core concepts covered in this course.',
+    cta: 'Practice your weaker areas and explore suitable opportunities.',
   },
   developing: {
     title: 'Developing',
-    body: 'You understand the core concepts, but some evaluation skills would benefit from additional practice.',
+    body: 'You understand many of the important concepts, but your results suggest that additional practice would be useful before attempting more demanding evaluation work.',
+    cta: 'Review your lowest-scoring modules and complete additional practice exercises.',
   },
   foundation: {
     title: 'Foundation Stage',
-    body: 'You’re still developing the basic evaluation skills covered in this course. Review your weaker modules before trying more advanced practice.',
+    body: 'You’re still developing the foundational skills covered in this course. Reviewing the lessons and practicing response evaluation should help strengthen your understanding.',
+    cta: 'Review the course before retaking the assessment.',
   },
 };
+
+export const CATEGORY_COPY: Record<ScoreCategory, { strong: string; develop: string }> = {
+  instruction_following: {
+    strong: 'You’re strong at identifying explicit requirements and noticing when responses violate formatting, length, or content constraints.',
+    develop: 'Practice turning prompts into checklists and evaluating every constraint separately.',
+  },
+  response_evaluation: {
+    strong: 'You consistently distinguish stronger and weaker responses using relevance, clarity, completeness, and overall usefulness.',
+    develop: 'Practice comparing responses across several quality dimensions instead of relying on overall impression.',
+  },
+  factuality: {
+    strong: 'You show good judgment around factual claims, uncertainty, and when verification is appropriate.',
+    develop: 'Practice distinguishing factual claims from opinions and identifying claims that require verification.',
+  },
+  written_reasoning: {
+    strong: 'Your evaluation explanations are generally specific, neutral, and evidence-based.',
+    develop: 'Use the Decision → Evidence → Impact framework to make your explanations more specific.',
+  },
+  attention_to_detail: {
+    strong: 'You reliably notice subtle prompt constraints and small instruction violations.',
+    develop: 'Slow down on multi-constraint prompts and use a checklist before making the final judgment.',
+  },
+};
+
+export function insightForCategory(category: ScoreCategory, score: number) {
+  return score >= 85 ? CATEGORY_COPY[category].strong : CATEGORY_COPY[category].develop;
+}
 
 export function bandForCategory(score: number): 'strong' | 'good' | 'developing' {
   if (score >= 85) return 'strong';
@@ -139,7 +170,7 @@ export function recommendationsFor(categoryScores: Record<ScoreCategory, number>
   };
   const next = [
     tips[weakest ?? 'instruction_following'],
-    'Explore opportunities that match skills you already have—this assessment does not predict platform acceptance.',
+    'Explore opportunities that match your existing professional or academic skills. This assessment does not predict platform acceptance.',
     'Review your results with a coach if you want a practical next-step plan.',
   ];
   return next;

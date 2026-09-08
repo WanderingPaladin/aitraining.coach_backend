@@ -6,7 +6,7 @@ import { newCredentialId } from '../src/modules/learn/pdf.js';
 describe('foundations assessment', () => {
   it('does not expose answers on the public question payload', () => {
     const published = publicQuestions();
-    expect(published).toHaveLength(20);
+    expect(published).toHaveLength(23);
     expect(published[0]).not.toHaveProperty('correct');
     expect(published[0]).not.toHaveProperty('explanation');
     expect(published[0]).not.toHaveProperty('category');
@@ -16,12 +16,9 @@ describe('foundations assessment', () => {
   it('scores a perfect attempt at 100 and passing', () => {
     const answers: Record<string, string> = {};
     for (const question of ASSESSMENT_QUESTIONS) {
-      if (question.id === 'q10') {
+      if (question.id === 'p2') {
         answers[question.id] =
-          'It is weak because it is not specific and gives no evidence or reason for the problem.';
-      } else if (question.id === 'q16') {
-        answers[question.id] =
-          'B is better because the language is simple and a 10-year-old can understand it, matching the requested audience.';
+          'The second sentence is overly absolute and unsupported: adults do not all need exactly nine hours.';
       } else {
         answers[question.id] = question.correct ?? '';
       }

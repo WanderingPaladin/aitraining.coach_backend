@@ -6,6 +6,7 @@ import { COURSE_SLUG, PASS_SCORE, publicQuestions } from './questions.js';
 import {
   bandForCategory,
   categoryLabel,
+  insightForCategory,
   levelForScore,
   LEVEL_COPY,
   recommendationsFor,
@@ -293,6 +294,7 @@ function categoryView(scores: Record<string, number> | null) {
     label: categoryLabel(key),
     score: record[key] ?? 0,
     band: bandForCategory(record[key] ?? 0),
+    insight: insightForCategory(key, record[key] ?? 0),
   }));
 }
 
