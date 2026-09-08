@@ -2,6 +2,13 @@ import { Prisma } from '@prisma/client';
 import { ZodError } from 'zod';
 import { AppError } from './errors.js';
 
+const STORAGE_PRISMA_CODES = new Set(['P2021', 'P2022', 'P2011', 'P2012']);
+
+export function isAssessmentStorageError(error: unknown): boolean {
+  if (error instanceof Prisma.PrismaClientValidationError) return true;
+  return error instanceof Prisma.PrismaClientKnownRequestError && STORAGE_PRISMA_CODES.has(error.code);
+}
+
 function clientStatusCode(error: unknown): number | undefined {
   if (typeof error === 'object' && error && 'statusCode' in error) {
     const code = Number((error as { statusCode: unknown }).statusCode);
@@ -51,7 +58,7 @@ export function serializeError(error: unknown): {
     };
   }
 
-  if (error instanceof Prisma.PrismaClientKnownRequestError && (error.code === 'P2022' || error.code === 'P2021')) {
+  if (isAssessmentStorageError(error)) {
     return {
       statusCode: 503,
       body: {

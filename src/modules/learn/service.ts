@@ -1,5 +1,7 @@
-import type { Prisma } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../db/prisma.js';
+import { isAssessmentStorageError } from '../../lib/http.js';
 import { badRequest, conflict, forbidden, notFound } from '../../lib/errors.js';
 import { isUuid } from '../tracking/sanitize.js';
 import { COURSE_SLUG, PASS_SCORE, questionsForIds, selectAttemptQuestionIds } from './questions.js';
@@ -66,6 +68,32 @@ function quizResultsWithLabs(quizResults: Prisma.JsonValue | null | undefined, l
   return base;
 }
 
+const ATTEMPT_CORE_SELECT = {
+  id: true,
+  userId: true,
+  visitorId: true,
+  courseSlug: true,
+  answers: true,
+  submitted: true,
+  categoryScores: true,
+  finalScore: true,
+  passed: true,
+  firstName: true,
+  email: true,
+  usBased: true,
+  situation: true,
+  state: true,
+  shareScore: true,
+  createdAt: true,
+  updatedAt: true,
+  submittedAt: true,
+} satisfies Prisma.AssessmentAttemptSelect;
+
+const ATTEMPT_WITH_CERT_SELECT = {
+  ...ATTEMPT_CORE_SELECT,
+  certificate: true,
+} satisfies Prisma.AssessmentAttemptSelect;
+
 function serializeOpenAttempt(attempt: { id: string; answers: Prisma.JsonValue }) {
   return {
     id: attempt.id,
@@ -73,6 +101,71 @@ function serializeOpenAttempt(attempt: { id: string; answers: Prisma.JsonValue }
     answers: publicAnswers(attempt.answers),
     currentIndex: readCurrentIndex(attempt.answers),
   };
+}
+
+function ownerWhere(identity: Identity, visitorId: string | null) {
+  return [
+    ...(identity.userId ? [{ userId: identity.userId }] : []),
+    ...(visitorId ? [{ visitorId }] : []),
+  ];
+}
+
+async function findAttemptRow(
+  where: Prisma.AssessmentAttemptWhereInput,
+  orderBy: Prisma.AssessmentAttemptOrderByWithRelationInput = { updatedAt: 'desc' },
+) {
+  try {
+    return await prisma.assessmentAttempt.findFirst({
+      where,
+      select: ATTEMPT_WITH_CERT_SELECT,
+      orderBy,
+    });
+  } catch (error) {
+    if (isAssessmentStorageError(error)) return null;
+    throw error;
+  }
+}
+
+async function createOpenAttempt(data: {
+  userId: string | null;
+  visitorId: string | null;
+  courseSlug: string;
+  answers: Prisma.InputJsonValue;
+}) {
+  try {
+    return await prisma.assessmentAttempt.create({
+      data,
+      select: { id: true, answers: true, submitted: true },
+    });
+  } catch (error) {
+    if (!isAssessmentStorageError(error)) throw error;
+    const id = randomUUID();
+    try {
+      await prisma.$executeRaw(
+        Prisma.sql`
+          INSERT INTO "AssessmentAttempt" (
+            "id", "userId", "visitorId", "courseSlug", "answers",
+            "submitted", "passed", "shareScore", "createdAt", "updatedAt"
+          )
+          VALUES (
+            ${id},
+            ${data.userId},
+            ${data.visitorId},
+            ${data.courseSlug},
+            CAST(${JSON.stringify(data.answers)} AS JSONB),
+            false,
+            false,
+            false,
+            NOW(),
+            NOW()
+          )
+        `,
+      );
+    } catch {
+      throw error;
+    }
+    return { id, answers: data.answers, submitted: false as const };
+  }
 }
 
 async function findProgress(identity: Identity, courseSlug: string) {
@@ -177,7 +270,7 @@ export async function saveProgress(identity: Identity, body: ProgressBody) {
 async function findAttempt(id: string, identity: Identity) {
   const attempt = await prisma.assessmentAttempt.findUnique({
     where: { id },
-    include: { certificate: true },
+    select: ATTEMPT_WITH_CERT_SELECT,
   });
   if (!attempt) throw notFound('ATTEMPT_NOT_FOUND', 'That assessment could not be found.');
   const allowed =
@@ -221,7 +314,10 @@ export async function startAttempt(identity: Identity, body: StartAttemptBody) {
   if (body.attemptId) {
     const existing = await prisma.assessmentAttempt.findUnique({
       where: { id: body.attemptId },
-      include: { certificate: true },
+      select: ATTEMPT_WITH_CERT_SELECT,
+    }).catch((error) => {
+      if (isAssessmentStorageError(error)) return null;
+      throw error;
     });
     if (existing && allowedAttempt(existing, identity, visitorId)) {
       if (existing.submitted) {
@@ -249,18 +345,10 @@ export async function startAttempt(identity: Identity, body: StartAttemptBody) {
     }
   }
 
-  const open = await prisma.assessmentAttempt.findFirst({
-    where: {
-      courseSlug: body.courseSlug,
-      submitted: false,
-      OR: [
-        ...(identity.userId ? [{ userId: identity.userId }] : []),
-        ...(visitorId ? [{ visitorId }] : []),
-      ],
-    },
-    include: { certificate: true },
-    orderBy: { updatedAt: 'desc' },
-  });
+  const owners = ownerWhere(identity, visitorId);
+  const open = await findAttemptRow(
+    { courseSlug: body.courseSlug, submitted: false, OR: owners },
+  );
   if (open) {
     learnLog('start', {
       attemptId: open.id,
@@ -276,18 +364,10 @@ export async function startAttempt(identity: Identity, body: StartAttemptBody) {
   }
 
   if (!body.retake) {
-    const latest = await prisma.assessmentAttempt.findFirst({
-      where: {
-        courseSlug: body.courseSlug,
-        submitted: true,
-        OR: [
-          ...(identity.userId ? [{ userId: identity.userId }] : []),
-          ...(visitorId ? [{ visitorId }] : []),
-        ],
-      },
-      include: { certificate: true },
-      orderBy: { submittedAt: 'desc' },
-    });
+    const latest = await findAttemptRow(
+      { courseSlug: body.courseSlug, submitted: true, OR: owners },
+      { submittedAt: 'desc' },
+    );
     if (latest && latest.finalScore != null) {
       learnLog('start', { attemptId: latest.id, submitted: true, resumed: true });
       return {
@@ -299,13 +379,11 @@ export async function startAttempt(identity: Identity, body: StartAttemptBody) {
   }
 
   const questionSet = selectAttemptQuestionIds();
-  const created = await prisma.assessmentAttempt.create({
-    data: {
-      userId: identity.userId,
-      visitorId,
-      courseSlug: body.courseSlug,
-      answers: encodeQuestionSet(questionSet) as Prisma.InputJsonValue,
-    },
+  const created = await createOpenAttempt({
+    userId: identity.userId,
+    visitorId,
+    courseSlug: body.courseSlug,
+    answers: encodeQuestionSet(questionSet) as Prisma.InputJsonValue,
   });
   learnLog('start', { attemptId: created.id, submitted: false, resumed: false, questionCount: questionSet.length });
   return {
@@ -324,6 +402,7 @@ export async function saveAnswers(id: string, identity: Identity, body: SaveAnsw
   const updated = await prisma.assessmentAttempt.update({
     where: { id: attempt.id },
     data: { answers: merged as Prisma.InputJsonValue, visitorId: identity.visitorId ?? attempt.visitorId },
+    select: { id: true, answers: true },
   });
   learnLog('answer', {
     attemptId: updated.id,
@@ -388,7 +467,7 @@ export async function submitAttempt(id: string, identity: Identity, body: Submit
         userId: identity.userId ?? attempt.userId,
         visitorId: identity.visitorId ?? attempt.visitorId,
       },
-      include: { certificate: true },
+      select: ATTEMPT_WITH_CERT_SELECT,
     });
     if (scored.passed && !next.certificate) {
       for (let i = 0; i < 6; i += 1) {
@@ -413,7 +492,7 @@ export async function submitAttempt(id: string, identity: Identity, body: Submit
         }
       }
     }
-    return tx.assessmentAttempt.findUniqueOrThrow({ where: { id: next.id }, include: { certificate: true } });
+    return tx.assessmentAttempt.findUniqueOrThrow({ where: { id: next.id }, select: ATTEMPT_WITH_CERT_SELECT });
   });
   learnLog('submit', {
     attemptId: updated.id,
@@ -459,7 +538,7 @@ export async function retryCertificate(id: string, identity: Identity) {
   }
   const next = await prisma.assessmentAttempt.findUniqueOrThrow({
     where: { id: attempt.id },
-    include: { certificate: true },
+    select: ATTEMPT_WITH_CERT_SELECT,
   });
   learnLog('certificate', { attemptId: next.id, hasCertificate: Boolean(next.certificate) });
   return serializeResult(next);

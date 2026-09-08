@@ -46,4 +46,13 @@ describe('assessment question-set persistence', () => {
     expect(serialized.statusCode).toBe(503);
     expect(serialized.body.error.code).toBe('ASSESSMENT_STORAGE_UNAVAILABLE');
   });
+
+  it('maps prisma validation errors to a recoverable 503', () => {
+    const error = new Prisma.PrismaClientValidationError('Argument questionSet is missing.', {
+      clientVersion: '6.15.0',
+    });
+    const serialized = serializeError(error);
+    expect(serialized.statusCode).toBe(503);
+    expect(serialized.body.error.code).toBe('ASSESSMENT_STORAGE_UNAVAILABLE');
+  });
 });
