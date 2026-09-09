@@ -48,8 +48,13 @@ describe('startAttempt retake', () => {
     expect(prisma.assessmentAttempt.create).toHaveBeenCalledTimes(1);
     const payload = vi.mocked(prisma.assessmentAttempt.create).mock.calls[0]?.[0];
     expect(payload?.data).not.toHaveProperty('questionSet');
+    expect(payload?.data).not.toHaveProperty('userId');
+    expect(payload?.data).not.toHaveProperty('visitorId');
     expect(payload?.select).toEqual({ id: true, answers: true, submitted: true });
     expect((payload?.data as { answers?: Record<string, string> }).answers).toHaveProperty('__questionSet');
+    expect((payload?.data as { visitor?: { connect?: { id?: string } } }).visitor).toEqual({
+      connect: { id: visitorId },
+    });
     expect(prisma.assessmentAttempt.findFirst).toHaveBeenCalledTimes(1);
   });
 

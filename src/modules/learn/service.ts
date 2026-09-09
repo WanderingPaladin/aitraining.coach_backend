@@ -135,7 +135,12 @@ async function createOpenAttempt(data: {
 }) {
   try {
     return await prisma.assessmentAttempt.create({
-      data,
+      data: {
+        courseSlug: data.courseSlug,
+        answers: data.answers,
+        ...(data.userId ? { user: { connect: { id: data.userId } } } : {}),
+        ...(data.visitorId ? { visitor: { connect: { id: data.visitorId } } } : {}),
+      },
       select: { id: true, answers: true, submitted: true },
     });
   } catch (error) {
